@@ -2,5 +2,11 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true
-  }
+  },
+  "include": [
+    // "nativewind-extend.d.ts",
+    "src",
+    "App.tsx",
+    "nativewind-env.d.ts"
+  ]
 }

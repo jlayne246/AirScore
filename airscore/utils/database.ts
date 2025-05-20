@@ -10,18 +10,7 @@ import { Asset } from "expo-asset";
  * */ 
 import * as FileSystem from "expo-file-system";
 
-// Define types for music items
-export interface MusicItem {
-    id?: number;
-    title: string;
-    uri: string;
-}
-
-// Define types for the groups
-export interface Group {
-    id?: number;
-    name: string;
-}
+import { MusicItem, Group } from "../types";
 
 /**
  * Opens the SQLite database
@@ -39,11 +28,13 @@ export const initDB = async () => {
     const db = await openDatabase();
 
     // Create tables with proper relationships using execAsync to execute multiple SQL statements at once as a transaction
-    await db.execAsync(`
+    try {
+        await db.execAsync(`
             CREATE TABLE IF NOT EXISTS music (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
-                uri TEXT NOT NULL
+                uri TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
             );
 
             CREATE TABLE IF NOT EXISTS groups (
@@ -59,6 +50,11 @@ export const initDB = async () => {
                 FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE CASCADE
             );
         `);
+
+        console.log("Database initialised");
+    } catch (error) {
+        console.error("Failed to initialize database:", error);
+    }
 }
 
 /**
@@ -71,17 +67,24 @@ export const initDB = async () => {
 export const insertMusic = async (
   title: string,
   uri: string,
-  groupNames: string[]
+  groupNames: string[],
+  created_at: string
 ) : Promise<number> => {
     const db = await openDatabase();
+    const created = created_at || new Date().toISOString();
 
     try {
         // Begins transaction to ensure atomicity
         await db.execAsync('BEGIN TRANSACTION');
 
+        // Checks to see if a title is undefined
+        if (!title || typeof title == 'undefined') {
+            throw new Error("No title given");
+        }
+
         // Insert the music item
         const musicResult = await db.runAsync(
-            'INSERT INTO music (title, uri) VALUES (?, ?)', [title, uri]
+            'INSERT INTO music (title, uri, created_at) VALUES (?, ?, ?)', [title, uri, created]
         );
 
         const musicId = musicResult.lastInsertRowId;
@@ -262,3 +265,55 @@ export const removeMusicFromGroup = async (musicId: number, groupName: string) =
         )`, [musicId, groupName]
     );
 }
+
+/**
+ * Drops specified tables from the database
+ * @param tableNames - Array of table names to drop
+ * @returns Promise that resolves when all tables are dropped
+ */
+export const dropTables = async (tableNames: string[] = ['music_groups', 'music', 'groups']) => {
+    const db = await openDatabase();
+    
+    try {
+      // Begin transaction to ensure atomicity
+      await db.execAsync('BEGIN TRANSACTION');
+      
+      // Drop tables in the correct order to respect foreign key constraints
+      for (const tableName of tableNames) {
+        await db.execAsync(`DROP TABLE IF EXISTS ${tableName}`);
+        console.log(`Table ${tableName} dropped successfully`);
+      }
+      
+      // Commit the transaction
+      await db.execAsync('COMMIT');
+      console.log('All specified tables dropped successfully');
+      
+      // Option to reinitialize the database after dropping
+      return true;
+    } catch (error) {
+      // Rollback on error
+      await db.execAsync('ROLLBACK');
+      console.error('Error dropping tables:', error);
+      throw error;
+    }
+  };
+  
+  /**
+   * Reset the database by dropping all tables and reinitializing
+   * Useful during development or for features like "Reset App Data"
+   */
+  export const resetDatabase = async () => {
+    try {
+      // Drop tables in the correct order (respecting foreign key constraints)
+      await dropTables();
+      
+      // Reinitialize the database structure
+      await initDB();
+      
+      console.log('Database has been reset successfully');
+      return true;
+    } catch (error) {
+      console.error('Failed to reset database:', error);
+      throw error;
+    }
+  };

@@ -1,1 +1,3 @@
-export const ReaderScreen = ({}) => (<></>);
+const ReaderScreen = ({}) => (<></>);
+
+export default ReaderScreen;
