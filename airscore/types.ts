@@ -5,10 +5,36 @@ export type RootStackParamList = {
 
 // Define types for music items
 export interface MusicItem {
-    id?: number;
-    title: string;
-    uri: string;
-    created_at: string;
+  id?: number;
+  title: string;
+  uri: string;
+  created_at: string;
+}
+
+// Define types for music item metadata
+export interface MusicMetadata {
+  id?: number;
+  title: string;
+  composer: string;
+  genre: string;
+  key_signature: string;
+  rating: number; // 1-5
+  difficulty: number; // 1-10
+  time_signature: string;
+  page_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Define types for labels
+export interface Label {
+  id: number;
+  name: string;
+  colour?: string;
+}
+
+export interface MusicMetadataWithLabels extends MusicMetadata {
+  labels: string[];
 }
 
 // Define types for the groups

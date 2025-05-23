@@ -1,15 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, Button, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 
+import { Ionicons } from '@expo/vector-icons';
+
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, MusicItem } from '../types';
 
 import { UploadLocalPDF } from '../utils/fileUtils';
-import { initDB, insertMusic, getAllMusicWithGroups, getMusicByMultipleGroups } from "../utils/database";
+import { initDB, insertMusic, getAllMusicWithGroups, getMusicByMultipleGroups, deleteMusic } from "../utils/database";
+
+import MetadataForm from '../components/MetadataForm'; // Adjust path as needed
 
 const LibraryScreen = ({}) => {
     const [musicList, setMusicList] = useState<Array<MusicItem & { groups: string[] }>>([]);
+    const [selectedMusicId, setSelectedMusicId] = useState<number | undefined>();
+    const [prefilledTitle, setPrefilledTitle] = useState<string | undefined>();
+    const [showMetadataForm, setShowMetadataForm] = useState(false);
+    const [showDeleteForm, setShowDeleteForm] = useState(false);
     const [loading, setLoading] = useState(false);
 
     type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Library'>;
@@ -35,16 +43,52 @@ const LibraryScreen = ({}) => {
         setMusicList(results);
     };
 
+    // Handle opening metadata form
+    const handleEditMetadata = (musicId: number, musicTitle: string) => {
+        setSelectedMusicId(musicId);
+        setPrefilledTitle(undefined); // Clear prefilled title for existing items
+        setShowMetadataForm(true);
+    };
+
+    // Handle metadata form save
+    const handleMetadataSave = (success: boolean) => {
+        setShowMetadataForm(false);
+        setSelectedMusicId(undefined);
+        setPrefilledTitle(undefined); // Clear prefilled title
+        
+        if (success) {
+            // Optionally reload the music list or show success message
+            loadMusic();
+        }
+    };
+
+    // Handle metadata form cancel
+    const handleMetadataCancel = () => {
+        setShowMetadataForm(false);
+        setSelectedMusicId(undefined);
+        setPrefilledTitle(undefined); // Clear prefilled title
+    };
+
     const handleImport = async () => {
         setLoading(true); // Show loading modal
         const uri = await UploadLocalPDF();
     
         if (uri) {
             try {
-                const title = uri.split('/').pop() || 'Untitled';
+                const raw_title = uri.split('/').pop() || 'Untitled';
+                const title = raw_title.replace(".pdf", "");
                 const now = new Date().toISOString();
-                await insertMusic(title, uri, ['Ungrouped'], now); // Await for DB insert
+
+                // Insert the music item and get the ID
+                const insertedId = await insertMusic(raw_title, uri, ['Ungrouped'], now);
                 await loadMusic(); // Refresh after insert
+                
+                // Automatically open metadata form with the new item
+                if (insertedId) {
+                    setSelectedMusicId(insertedId);
+                    setPrefilledTitle(title); // Set the title to be prefilled
+                    setShowMetadataForm(true);
+                }
             } catch (error) {
                 console.error("Failed to insert music:", error);
             } finally {
@@ -55,66 +99,105 @@ const LibraryScreen = ({}) => {
         }
     };
     
+    const handleDelete = async (id: number) => {
+        
+    }
 
     const openPDF = (uri: string) => {
         navigation.navigate('Reader', { uri });
     };
 
+    // Render individual music item
+    const renderMusicItem = ({ item }: { item: MusicItem & { groups: string[] } }) => (
+        <View className="bg-white rounded-lg p-4 mb-3 flex-row justify-between items-center shadow-sm shadow-black/10 elevation-3">
+        <View className="flex-1">
+            <Text className="text-base font-semibold text-gray-800 mb-1">{item.title}</Text>
+            <Text className="text-sm text-gray-600">
+            Groups: {item.groups.length > 0 ? item.groups.join(', ') : 'None'}
+            </Text>
+        </View>
+        
+        <View className="flex-row gap-2">
+            {/* Edit Metadata Button */}
+            <TouchableOpacity
+            className="bg-blue-500 py-1.5 px-3 rounded"
+            onPress={() => item.id && handleEditMetadata(item.id, item.title)}
+            >
+                <Text className="text-white text-xs font-semibold">Info</Text>
+            </TouchableOpacity>
+            
+            {/* Your existing buttons (play, edit, delete, etc.) */}
+            <TouchableOpacity className="bg-red-500 py-1.5 px-3 rounded"
+            onPress={() => item.id && handleDelete(item.id)}>
+                <Text className="text-white text-xs font-semibold">Delete</Text>
+            </TouchableOpacity>
+        </View>
+        </View>
+    );
+
+    const deleteModal = (item_id: number) => {
+        <View>
+            <Text>Are you sure you want to delete?</Text>
+            <TouchableOpacity
+            className="bg-blue-500 py-1.5 px-3 rounded"
+            >
+                <Text className="text-white text-xs font-semibold">Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="bg-red-500 py-1.5 px-3 rounded"
+            onPress={() => item_id && deleteMusic(item_id)}>
+                <Text className="text-white text-xs font-semibold">Delete</Text>
+            </TouchableOpacity>
+        </View>
+    }
+
     return (
-        <View className="flex-1 p-4 bg-black">
-            <Button title="Import PDF" onPress={handleImport} />
-            <FlatList 
-                data={musicList}
-                keyExtractor={item => item.id?.toString() || ''}
-                renderItem={({ item }) => (
-                    <TouchableOpacity onPress={() => openPDF(item.uri)} style={styles.listElement}>
-                        <Text className="text-white text-lg py-3">{item.title}</Text>
-                        {item.created_at && (
-                            <Text className="text-gray-400 text-sm">
-                                Added on {new Date(item.created_at).toLocaleDateString()}
-                            </Text>
-                        )}
-                    </TouchableOpacity>
-                )}
+        <View className="flex-1 bg-white-100">
+            {musicList && musicList.length > 0 ? (
+                <FlatList
+                    data={musicList}
+                    renderItem={renderMusicItem}
+                    keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                    className="p-4"
+                />
+            ) : (
+                <View className="flex-1 items-center justify-center px-4">
+                    <Text className="text-center text-sm text-gray-600">
+                        No music in library. Please press the (+) to add music.
+                    </Text>
+                </View>
+            )}
+
+
+
+            {/* Metadata Form Modal */}
+            <MetadataForm
+                visible={showMetadataForm}
+                musicId={selectedMusicId}
+                prefilledTitle={prefilledTitle} // New prop
+                onSave={handleMetadataSave}
+                onCancel={handleMetadataCancel}
             />
+
             {loading && (
-                <View style={styles.loadingOverlay}>
-                    <View style={styles.loaderBox}>
+                <View className="absolute inset-0 bg-black/60 flex justify-center items-center z-50">
+                    <View className="bg-gray-800 px-6 py-4 rounded-xl items-center w-64">
                         <ActivityIndicator size="large" color="#ffffff" />
-                        <Text style={styles.loadingText}>Importing PDF...</Text>
+                        <Text className="mt-3 text-white text-base text-center">Importing PDF...</Text>
                     </View>
                 </View>
             )}
+
+
+            {/* Floating Import (+) Button */}
+            <TouchableOpacity
+                className="absolute bottom-6 right-6 bg-blue-500 rounded-full w-14 h-14 justify-center items-center shadow-md shadow-black/20 elevation-5"
+                onPress={handleImport}
+            >
+                <Ionicons name="add" size={32} color="white" />
+            </TouchableOpacity>
+
         </View>
     );
 };
 
 export default LibraryScreen;
-
-const styles = StyleSheet.create({
-    loadingOverlay: {
-        position: 'absolute',
-        top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10,
-    },
-    loaderBox: {
-        backgroundColor: '#222',
-        padding: 24,
-        borderRadius: 12,
-        alignItems: 'center',
-        margin: 0
-    },
-    loadingText: {
-        marginTop: 12,
-        color: 'white',
-        fontSize: 16,
-    },
-    listElement: {
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: "gray"
-    }
-});

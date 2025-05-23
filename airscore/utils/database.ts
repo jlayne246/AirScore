@@ -10,7 +10,7 @@ import { Asset } from "expo-asset";
  * */ 
 import * as FileSystem from "expo-file-system";
 
-import { MusicItem, Group } from "../types";
+import { MusicItem, Group, Label, MusicMetadata, MusicMetadataWithLabels } from "../types";
 
 /**
  * Opens the SQLite database
@@ -30,30 +30,62 @@ export const initDB = async () => {
     // Create tables with proper relationships using execAsync to execute multiple SQL statements at once as a transaction
     try {
         await db.execAsync(`
-            CREATE TABLE IF NOT EXISTS music (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                uri TEXT NOT NULL,
-                created_at TEXT DEFAULT (datetime('now'))
-            );
+                -- Original tables
+                CREATE TABLE IF NOT EXISTS music (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    uri TEXT NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
 
-            CREATE TABLE IF NOT EXISTS groups (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE
-            );
+                CREATE TABLE IF NOT EXISTS groups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE
+                );
 
-            CREATE TABLE IF NOT EXISTS music_groups (
-                music_id INTEGER,
-                group_id INTEGER,
-                PRIMARY KEY (music_id, group_id),
-                FOREIGN KEY (music_id) REFERENCES music (id) ON DELETE CASCADE,
-                FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE CASCADE
-            );
-        `);
+                CREATE TABLE IF NOT EXISTS music_groups (
+                    music_id INTEGER,
+                    group_id INTEGER,
+                    PRIMARY KEY (music_id, group_id),
+                    FOREIGN KEY (music_id) REFERENCES music (id) ON DELETE CASCADE,
+                    FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE CASCADE
+                );
 
-        console.log("Database initialised");
+                -- New metadata tables
+                CREATE TABLE IF NOT EXISTS music_metadata (
+                    id INTEGER PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    composer TEXT,
+                    genre TEXT,
+                    key_signature TEXT,
+                    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+                    difficulty INTEGER CHECK (difficulty >= 1 AND difficulty <= 10),
+                    time_signature TEXT,
+                    page_count INTEGER,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now')),
+                    FOREIGN KEY (id) REFERENCES music (id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS labels (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    colour TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS music_labels (
+                    music_id INTEGER,
+                    label_id INTEGER,
+                    PRIMARY KEY (music_id, label_id),
+                    FOREIGN KEY (music_id) REFERENCES music (id) ON DELETE CASCADE,
+                    FOREIGN KEY (label_id) REFERENCES labels (id) ON DELETE CASCADE
+                );
+            `);
+
+        console.log("Database with metadata initialized");
     } catch (error) {
-        console.error("Failed to initialize database:", error);
+        console.error("Failed to initialize database with metadata:", error);
+        throw error;
     }
 }
 
@@ -134,6 +166,12 @@ export const getAllMusicWithGroups = async (): Promise<
 
     // Get all music items from the music table
     const musicItems = await db.getAllAsync<MusicItem>('SELECT * FROM music');
+
+    if (!musicItems) {
+        console.log("No music here");
+    }
+
+    console.log("Here!")
 
     try {
         // For each music item, get its groups
@@ -317,3 +355,196 @@ export const dropTables = async (tableNames: string[] = ['music_groups', 'music'
       throw error;
     }
   };
+
+/**
+ * Saves or updates metadata for a music item
+ * @param musicId - The ID of the music item
+ * @param metadata - The metadata object (without id field)
+ * @returns Promise<void>
+ */
+export const saveMusicMetadata = async (
+    musicId: number, 
+    metadata: Omit<MusicMetadata, 'id'>
+): Promise<void> => {
+    const db = await openDatabase();
+
+    try {
+        await db.execAsync('BEGIN TRANSACTION');
+
+        // Insert or replace metadata
+        await db.runAsync(`
+            INSERT OR REPLACE INTO music_metadata (
+                id, title, composer, genre, key_signature, 
+                rating, difficulty, time_signature, page_count, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+            musicId,
+            metadata.title,
+            metadata.composer || null,
+            metadata.genre || null,
+            metadata.key_signature || null,
+            metadata.rating || null,
+            metadata.difficulty || null,
+            metadata.time_signature || null,
+            metadata.page_count || null,
+            metadata.created_at || new Date().toISOString()
+        ]);
+
+        await db.execAsync('COMMIT');
+        console.log(`Metadata saved for music ID: ${musicId}`);
+    } catch (error) {
+        await db.execAsync('ROLLBACK');
+        console.error("Failed to save music metadata:", error);
+        throw error;
+    }
+};
+
+/**
+ * Creates a new label or returns existing one
+ * @param name - Label name
+ * @param colour - Optional color for the label
+ * @returns Promise<number> - The label ID
+ */
+export const createOrGetLabel = async (name: string, colour?: string): Promise<number> => {
+    const db = await openDatabase();
+
+    try {
+        // Try to get existing label
+        const existing = await db.getFirstAsync<{ id: number }>(
+            'SELECT id FROM labels WHERE name = ?', [name]
+        );
+
+        if (existing) {
+            return existing.id;
+        }
+
+        // Create new label
+        const result = await db.runAsync(
+            'INSERT INTO labels (name, colour) VALUES (?, ?)', 
+            [name, colour || null]
+        );
+
+        return result.lastInsertRowId;
+    } catch (error) {
+        console.error("Failed to create or get label:", error);
+        throw error;
+    }
+};
+
+/**
+ * Assigns labels to a music item
+ * @param musicId - The ID of the music item
+ * @param labelNames - Array of label names to assign
+ * @returns Promise<void>
+ */
+export const assignLabelsToMusic = async (
+    musicId: number, 
+    labelNames: string[]
+): Promise<void> => {
+    if (labelNames.length === 0) return;
+
+    const db = await openDatabase();
+
+    try {
+        await db.execAsync('BEGIN TRANSACTION');
+
+        // Remove existing labels for this music item
+        await db.runAsync('DELETE FROM music_labels WHERE music_id = ?', [musicId]);
+
+        // Add new labels
+        for (const labelName of labelNames) {
+            const labelId = await createOrGetLabel(labelName);
+            
+            await db.runAsync(
+                'INSERT INTO music_labels (music_id, label_id) VALUES (?, ?)',
+                [musicId, labelId]
+            );
+        }
+
+        await db.execAsync('COMMIT');
+        console.log(`Labels assigned to music ID: ${musicId}`);
+    } catch (error) {
+        await db.execAsync('ROLLBACK');
+        console.error("Failed to assign labels to music:", error);
+        throw error;
+    }
+};
+
+/**
+ * Saves complete music metadata including labels
+ * @param musicId - The ID of the music item
+ * @param metadata - The metadata object
+ * @param labelNames - Array of label names
+ * @returns Promise<void>
+ */
+export const saveCompleteMetadata = async (
+    musicId: number,
+    metadata: Omit<MusicMetadata, 'id'>,
+    labelNames: string[] = []
+): Promise<void> => {
+    try {
+        // Save metadata
+        await saveMusicMetadata(musicId, metadata);
+        
+        // Assign labels
+        await assignLabelsToMusic(musicId, labelNames);
+        
+        console.log(`Complete metadata saved for music ID: ${musicId}`);
+    } catch (error) {
+        console.error("Failed to save complete metadata:", error);
+        throw error;
+    }
+};
+
+/**
+ * Retrieves metadata for a music item including labels
+ * @param musicId - The ID of the music item
+ * @returns Promise<MusicMetadataWithLabels | null>
+ */
+export const getMusicWithMetadata = async (
+    musicId: number
+): Promise<MusicMetadataWithLabels | null> => {
+    const db = await openDatabase();
+
+    try {
+        // Get metadata
+        const metadata = await db.getFirstAsync<MusicMetadata>(
+            'SELECT * FROM music_metadata WHERE id = ?', [musicId]
+        );
+
+        if (!metadata) return null;
+
+        // Get labels
+        const labels = await db.getAllAsync<{ name: string }>(
+            `SELECT l.name 
+             FROM labels l 
+             JOIN music_labels ml ON l.id = ml.label_id 
+             WHERE ml.music_id = ?`, 
+            [musicId]
+        );
+
+        return {
+            ...metadata,
+            labels: labels.map(l => l.name)
+        };
+    } catch (error) {
+        console.error("Failed to get music metadata:", error);
+        throw error;
+    }
+};
+
+/**
+ * Gets all available labels
+ * @returns Promise<Label[]>
+ */
+export const getAllLabels = async (): Promise<Label[]> => {
+    const db = await openDatabase();
+    
+    try {
+        const labels = await db.getAllAsync<Label>('SELECT * FROM labels ORDER BY name');
+        return labels;
+    } catch (error) {
+        console.error("Failed to get all labels:", error);
+        throw error;
+    }
+};

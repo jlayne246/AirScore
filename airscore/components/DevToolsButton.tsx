@@ -147,7 +147,7 @@ const DevToolsButton = () => {
 const styles = StyleSheet.create({
   floatingButton: {
     position: 'absolute',
-    right: 20,
+    left: 25,
     bottom: 30,
     width: 50,
     height: 50,
