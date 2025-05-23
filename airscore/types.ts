@@ -37,6 +37,11 @@ export interface MusicMetadataWithLabels extends MusicMetadata {
   labels: string[];
 }
 
+export type MusicItemWithAllData = MusicItem & {
+  groups: string[];
+  metadata?: MusicMetadataWithLabels | null;
+};
+
 // Define types for the groups
 export interface Group {
     id?: number;

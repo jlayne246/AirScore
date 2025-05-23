@@ -10,7 +10,14 @@ import { Asset } from "expo-asset";
  * */ 
 import * as FileSystem from "expo-file-system";
 
-import { MusicItem, Group, Label, MusicMetadata, MusicMetadataWithLabels } from "../types";
+import {
+  MusicItem,
+  Group,
+  Label,
+  MusicMetadata,
+  MusicMetadataWithLabels,
+  MusicItemWithAllData,
+} from "../types";
 
 /**
  * Opens the SQLite database
@@ -547,4 +554,68 @@ export const getAllLabels = async (): Promise<Label[]> => {
         console.error("Failed to get all labels:", error);
         throw error;
     }
+};
+
+
+export const getMusicWithAllData = async (): Promise<
+  MusicItemWithAllData[]
+> => {
+  const db = await openDatabase();
+
+  // Fetch all music items
+  const musicItems = await db.getAllAsync<MusicItem>("SELECT * FROM music");
+
+  if (!musicItems || musicItems.length === 0) {
+    console.log("No music here");
+    return [];
+  }
+
+  try {
+    const result = await Promise.all(
+      musicItems.map(async (music) => {
+        if (!music || typeof music.id === "undefined") {
+          throw new Error("Unable to retrieve music item");
+        }
+
+        // Get groups
+        const groups = await db.getAllAsync<{ name: string }>(
+          `SELECT g.name
+                     FROM groups g
+                     JOIN music_groups mg ON g.id = mg.group_id
+                     WHERE mg.music_id = ?`,
+          [music.id]
+        );
+
+        // Get metadata
+        const metadata = await db.getFirstAsync<MusicMetadata>(
+          "SELECT * FROM music_metadata WHERE id = ?",
+          [music.id]
+        );
+
+        // Get labels for metadata (only if metadata exists)
+        let labels: string[] = [];
+        if (metadata) {
+          const labelResults = await db.getAllAsync<{ name: string }>(
+            `SELECT l.name 
+                         FROM labels l 
+                         JOIN music_labels ml ON l.id = ml.label_id 
+                         WHERE ml.music_id = ?`,
+            [music.id]
+          );
+          labels = labelResults.map((l) => l.name);
+        }
+
+        return {
+          ...music,
+          groups: groups.map((g) => g.name),
+          metadata: metadata ? { ...metadata, labels } : null,
+        };
+      })
+    );
+
+    return result;
+  } catch (error) {
+    console.error("Error fetching music with groups and metadata:", error);
+    throw error;
+  }
 };

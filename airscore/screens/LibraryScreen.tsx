@@ -5,16 +5,18 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, MusicItem } from '../types';
+import { RootStackParamList, MusicItem, MusicItemWithAllData } from '../types';
 
 import { UploadLocalPDF } from '../utils/fileUtils';
-import { initDB, insertMusic, getAllMusicWithGroups, getMusicByMultipleGroups, deleteMusic } from "../utils/database";
+import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic } from "../utils/database";
 
 import MetadataForm from '../components/MetadataForm'; // Adjust path as needed
+import DeleteModal from '../components/DeleteModal'; // Adjust path as needed
 
 const LibraryScreen = ({}) => {
     const [musicList, setMusicList] = useState<Array<MusicItem & { groups: string[] }>>([]);
     const [selectedMusicId, setSelectedMusicId] = useState<number | undefined>();
+    const [deletedMusicId, setDeletedMusicId] = useState<number>();
     const [prefilledTitle, setPrefilledTitle] = useState<string | undefined>();
     const [showMetadataForm, setShowMetadataForm] = useState(false);
     const [showDeleteForm, setShowDeleteForm] = useState(false);
@@ -31,7 +33,7 @@ const LibraryScreen = ({}) => {
 
     const loadMusic = async () => {
         try {
-            const results = await getAllMusicWithGroups();
+            const results = await getMusicWithAllData();
             setMusicList(results); // Set the state here
         } catch (error) {
             console.error('Failed to load music:', error);
@@ -39,7 +41,7 @@ const LibraryScreen = ({}) => {
     };
 
     const refreshMusicList = async () => {
-        const results = await getAllMusicWithGroups();
+        const results = await getMusicWithAllData();
         setMusicList(results);
     };
 
@@ -100,7 +102,9 @@ const LibraryScreen = ({}) => {
     };
     
     const handleDelete = async (id: number) => {
-        
+        console.log("Handling Delete")
+        setShowDeleteForm(true);
+        setDeletedMusicId(id);
     }
 
     const openPDF = (uri: string) => {
@@ -108,20 +112,27 @@ const LibraryScreen = ({}) => {
     };
 
     // Render individual music item
-    const renderMusicItem = ({ item }: { item: MusicItem & { groups: string[] } }) => (
+    const renderMusicItem = ({ item }: { item: MusicItemWithAllData }) => (
         <View className="bg-white rounded-lg p-4 mb-3 flex-row justify-between items-center shadow-sm shadow-black/10 elevation-3">
         <View className="flex-1">
-            <Text className="text-base font-semibold text-gray-800 mb-1">{item.title}</Text>
+            <Text className="text-base font-semibold text-gray-800 mb-1">{item.metadata?.title ?? '[No title]'}</Text>
             <Text className="text-sm text-gray-600">
             Groups: {item.groups.length > 0 ? item.groups.join(', ') : 'None'}
             </Text>
+            {item.metadata?.labels && item.metadata.labels.length > 0 && (
+                <Text className="text-sm text-gray-500 mt-1">
+                Labels: {item.metadata.labels.join(', ')}
+                </Text>
+            )}
         </View>
         
         <View className="flex-row gap-2">
             {/* Edit Metadata Button */}
             <TouchableOpacity
             className="bg-blue-500 py-1.5 px-3 rounded"
-            onPress={() => item.id && handleEditMetadata(item.id, item.title)}
+            onPress={() =>
+                item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)
+              }
             >
                 <Text className="text-white text-xs font-semibold">Info</Text>
             </TouchableOpacity>
@@ -135,20 +146,20 @@ const LibraryScreen = ({}) => {
         </View>
     );
 
-    const deleteModal = (item_id: number) => {
-        <View>
-            <Text>Are you sure you want to delete?</Text>
-            <TouchableOpacity
-            className="bg-blue-500 py-1.5 px-3 rounded"
-            >
-                <Text className="text-white text-xs font-semibold">Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="bg-red-500 py-1.5 px-3 rounded"
-            onPress={() => item_id && deleteMusic(item_id)}>
-                <Text className="text-white text-xs font-semibold">Delete</Text>
-            </TouchableOpacity>
-        </View>
-    }
+    // const deleteModal = (item_id: number) => (
+    //     <View>
+    //         <Text>Are you sure you want to delete?</Text>
+    //         <TouchableOpacity
+    //         className="bg-blue-500 py-1.5 px-3 rounded"
+    //         >
+    //             <Text className="text-white text-xs font-semibold">Cancel</Text>
+    //         </TouchableOpacity>
+    //         <TouchableOpacity className="bg-red-500 py-1.5 px-3 rounded"
+    //         onPress={() => item_id && deleteMusic(item_id)}>
+    //             <Text className="text-white text-xs font-semibold">Delete</Text>
+    //         </TouchableOpacity>
+    //     </View>
+    // )
 
     return (
         <View className="flex-1 bg-white-100">
@@ -178,13 +189,25 @@ const LibraryScreen = ({}) => {
                 onCancel={handleMetadataCancel}
             />
 
-            {loading && (
+            {/* {loading && (
                 <View className="absolute inset-0 bg-black/60 flex justify-center items-center z-50">
                     <View className="bg-gray-800 px-6 py-4 rounded-xl items-center w-64">
                         <ActivityIndicator size="large" color="#ffffff" />
                         <Text className="mt-3 text-white text-base text-center">Importing PDF...</Text>
                     </View>
                 </View>
+            )} */}
+
+            {/* Delete Modal */}
+            {showDeleteForm && (
+                <DeleteModal
+                    itemId={deletedMusicId!}
+                    onCancel={() => setShowDeleteForm(false)}
+                    onDelete={() => {
+                    if (deletedMusicId) deleteMusic(deletedMusicId);
+                    setShowDeleteForm(false); refreshMusicList();
+                    }}
+                />
             )}
 
 
