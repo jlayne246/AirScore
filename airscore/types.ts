@@ -47,3 +47,18 @@ export interface Group {
     id?: number;
     name: string;
 }
+
+// Updated interface to include all metadata
+export interface MetadataFormData {
+  title: string;
+  groups: string[];
+  // Add all the metadata fields
+  composer?: string;
+  genre?: string;
+  key_signature?: string;
+  rating?: number;
+  difficulty?: number;
+  time_signature?: string;
+  page_count?: number;
+  labels?: string[];
+}

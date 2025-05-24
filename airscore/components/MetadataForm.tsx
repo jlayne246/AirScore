@@ -18,26 +18,43 @@ import {
   createOrGetLabel,
 } from '../utils/database';
 
+
+// Updated MetadataFormData interface to include all fields
+interface MetadataFormData {
+  title: string;
+  groups: string[];
+  composer?: string;
+  genre?: string;
+  key_signature?: string;
+  rating?: number;
+  difficulty?: number;
+  time_signature?: string;
+  page_count?: number;
+  labels?: string[];
+}
+
 interface MetadataFormProps {
   musicId?: number;
-  prefilledTitle?: string;
+  initialTitle?: string;
   initialData?: MusicMetadataWithLabels;
-  onSave: (success: boolean) => void;
+  onSave: (formData?: MetadataFormData) => void;
   onCancel: () => void;
   visible: boolean;
+  mode: string;
 }
 
 const MetadataForm: React.FC<MetadataFormProps> = ({
   musicId,
-  prefilledTitle,
+  initialTitle,
   initialData,
   onSave,
   onCancel,
   visible,
+  mode
 }) => {
   // Form state
   const [formData, setFormData] = useState<Omit<MusicMetadata, 'id'>>({
-    title: prefilledTitle ? prefilledTitle : '',
+    title: '',
     composer: '',
     genre: '',
     key_signature: '',
@@ -55,6 +72,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   const [newLabelText, setNewLabelText] = useState('');
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
 
   // Rating and difficulty arrays for picker-style selection
   const ratings = [1, 2, 3, 4, 5];
@@ -79,24 +97,44 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     }
   }, [visible, musicId]);
 
+  // Handle initialTitle changes (for new items)
+  useEffect(() => {
+    if (visible && initialTitle && mode !== 'edit' && mode !== 'view') {
+      setFormData(prev => ({
+        ...prev,
+        title: initialTitle
+      }));
+    }
+  }, [visible, initialTitle, mode]);
+
   const loadData = async () => {
     try {
       // Load available labels
       const labels = await getAllLabels();
       setAvailableLabels(labels);
 
-      // Load existing metadata if editing
-      if (musicId && !initialData) {
-        const metadata = await getMusicWithMetadata(musicId);
-        if (metadata) {
-          const { labels, ...metadataOnly } = metadata;
+      // For edit/view modes, load existing metadata
+      if ((mode === 'edit' || mode === 'view') && musicId) {
+        if (!initialData) {
+          const metadata = await getMusicWithMetadata(musicId);
+          console.log("IN METADATA: ", metadata);
+          if (metadata) {
+            const { labels, ...metadataOnly } = metadata;
+            setFormData(metadataOnly);
+            setSelectedLabels(labels);
+          }
+        } else {
+          const { labels, ...metadataOnly } = initialData;
           setFormData(metadataOnly);
           setSelectedLabels(labels);
         }
-      } else if (initialData) {
-        const { labels, ...metadataOnly } = initialData;
-        setFormData(metadataOnly);
-        setSelectedLabels(labels);
+      }
+      // For new items, just set the title if provided
+      else if (initialTitle) {
+        setFormData(prev => ({
+          ...prev,
+          title: initialTitle
+        }));
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -104,12 +142,8 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     }
   };
 
+  // Updated handleSave function in MetadataForm
   const handleSave = async () => {
-    if (!musicId) {
-      Alert.alert('Error', 'No music ID provided');
-      return;
-    }
-
     if (!formData.title.trim()) {
       Alert.alert('Error', 'Title is required');
       return;
@@ -117,13 +151,30 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
 
     setIsLoading(true);
     try {
-      await saveCompleteMetadata(musicId, formData, selectedLabels);
-      Alert.alert('Success', 'Metadata saved successfully');
-      onSave(true);
+      // For existing items with musicId, save to database directly
+      if (musicId) {
+        await saveCompleteMetadata(musicId, formData, selectedLabels);
+        Alert.alert('Success', 'Metadata saved successfully');
+        console.log('Saving Metadata:', { musicId, formData, selectedLabels });
+      }
+      
+      // Always call onSave with ALL the form data
+      onSave({
+        title: formData.title,
+        groups: selectedGroups,
+        composer: formData.composer,
+        genre: formData.genre,
+        key_signature: formData.key_signature,
+        rating: formData.rating,
+        difficulty: formData.difficulty,
+        time_signature: formData.time_signature,
+        page_count: formData.page_count,
+        labels: selectedLabels,
+      });
     } catch (error) {
       console.error('Failed to save metadata:', error);
       Alert.alert('Error', 'Failed to save metadata');
-      onSave(false);
+      onSave(undefined);
     } finally {
       setIsLoading(false);
     }
@@ -252,7 +303,9 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           <TouchableOpacity onPress={onCancel} className="py-2 px-3">
             <Text className="text-blue-500 text-base">Cancel</Text>
           </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-800">Edit Metadata</Text>
+          <Text className="text-lg font-semibold text-gray-800">
+            {mode === 'edit' ? 'Edit Metadata' : mode === 'view' ? 'View Metadata' : 'Add Metadata'}
+          </Text>
           <TouchableOpacity 
             onPress={handleSave} 
             className={`py-2 px-4 rounded-lg ${

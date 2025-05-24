@@ -5,10 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, MusicItem, MusicItemWithAllData } from '../types';
+import { RootStackParamList, MusicItem, MusicItemWithAllData, MetadataFormData } from '../types';
 
 import { UploadLocalPDF } from '../utils/fileUtils';
-import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic } from "../utils/database";
+import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic, saveCompleteMetadata } from "../utils/database";
 
 import MetadataForm from '../components/MetadataForm'; // Adjust path as needed
 import DeleteModal from '../components/DeleteModal'; // Adjust path as needed
@@ -17,7 +17,9 @@ const LibraryScreen = ({}) => {
     const [musicList, setMusicList] = useState<Array<MusicItem & { groups: string[] }>>([]);
     const [selectedMusicId, setSelectedMusicId] = useState<number | undefined>();
     const [deletedMusicId, setDeletedMusicId] = useState<number>();
+    const [pendingPdfUri, setPendingPdfUri] = useState<string | null>(null);
     const [prefilledTitle, setPrefilledTitle] = useState<string | undefined>();
+    const [infoboxMode, setInfoboxMode] = useState<string>("new");
     const [showMetadataForm, setShowMetadataForm] = useState(false);
     const [showDeleteForm, setShowDeleteForm] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -48,21 +50,62 @@ const LibraryScreen = ({}) => {
     // Handle opening metadata form
     const handleEditMetadata = (musicId: number, musicTitle: string) => {
         setSelectedMusicId(musicId);
+        setInfoboxMode("edit");
         setPrefilledTitle(undefined); // Clear prefilled title for existing items
         setShowMetadataForm(true);
     };
 
     // Handle metadata form save
-    const handleMetadataSave = (success: boolean) => {
+    const handleMetadataSave = async (formData?: MetadataFormData) => {
         setShowMetadataForm(false);
         setSelectedMusicId(undefined);
-        setPrefilledTitle(undefined); // Clear prefilled title
-        
-        if (success) {
-            // Optionally reload the music list or show success message
-            loadMusic();
+        setPrefilledTitle(undefined);
+      
+        if (formData && pendingPdfUri) {
+          try {
+            const now = new Date().toISOString();
+            
+            // Create the music record first
+            const insertedId = await insertMusic(
+              formData.title,
+              pendingPdfUri,
+              formData.groups ?? ['Ungrouped'],
+              now
+            );
+
+            console.log("Music Record Created")
+            
+            // Now save the metadata with the new musicId
+            if (insertedId) {
+              const metadataToSave = {
+                title: formData.title,
+                composer: formData.composer || '',
+                genre: formData.genre || '',
+                key_signature: formData.key_signature || '',
+                rating: formData.rating || 0,
+                difficulty: formData.difficulty || 0,
+                time_signature: formData.time_signature || '',
+                page_count: formData.page_count || 0,
+                created_at: now,
+                updated_at: now,
+              };
+              
+              await saveCompleteMetadata(insertedId, metadataToSave, formData.labels || []);
+            }
+            
+            setPendingPdfUri(null);
+            await loadMusic(); // Refresh the music list
+          } catch (err) {
+            console.error('Error saving music and metadata:', err);
+          }
+        } else if (formData && selectedMusicId) {
+          // This is for editing existing items - metadata form handles this
+          await loadMusic(); // Just refresh the list
+        } else {
+          setPendingPdfUri(null); // Clear if cancelled
         }
     };
+      
 
     // Handle metadata form cancel
     const handleMetadataCancel = () => {
@@ -72,34 +115,22 @@ const LibraryScreen = ({}) => {
     };
 
     const handleImport = async () => {
-        setLoading(true); // Show loading modal
+        setLoading(true);
         const uri = await UploadLocalPDF();
-    
+      
         if (uri) {
-            try {
-                const raw_title = uri.split('/').pop() || 'Untitled';
-                const title = raw_title.replace(".pdf", "");
-                const now = new Date().toISOString();
-
-                // Insert the music item and get the ID
-                const insertedId = await insertMusic(raw_title, uri, ['Ungrouped'], now);
-                await loadMusic(); // Refresh after insert
-                
-                // Automatically open metadata form with the new item
-                if (insertedId) {
-                    setSelectedMusicId(insertedId);
-                    setPrefilledTitle(title); // Set the title to be prefilled
-                    setShowMetadataForm(true);
-                }
-            } catch (error) {
-                console.error("Failed to insert music:", error);
-            } finally {
-                setLoading(false); // Hide loading modal
-            }
-        } else {
-            setLoading(false); // Hide if no file selected
+          const raw_title = uri.split('/').pop() || 'Untitled';
+          const title = raw_title.replace('.pdf', '');
+      
+          setPendingPdfUri(uri);              // store the file path
+          setPrefilledTitle(title);          // prefill title for metadata form
+          setInfoboxMode("new"); 
+          setShowMetadataForm(true);         // show metadata form
         }
-    };
+      
+        setLoading(false);
+      };
+      
     
     const handleDelete = async (id: number) => {
         console.log("Handling Delete")
@@ -184,9 +215,10 @@ const LibraryScreen = ({}) => {
             <MetadataForm
                 visible={showMetadataForm}
                 musicId={selectedMusicId}
-                prefilledTitle={prefilledTitle} // New prop
+                initialTitle={prefilledTitle} // New prop
                 onSave={handleMetadataSave}
                 onCancel={handleMetadataCancel}
+                mode={infoboxMode}
             />
 
             {/* {loading && (

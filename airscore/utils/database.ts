@@ -316,7 +316,7 @@ export const removeMusicFromGroup = async (musicId: number, groupName: string) =
  * @param tableNames - Array of table names to drop
  * @returns Promise that resolves when all tables are dropped
  */
-export const dropTables = async (tableNames: string[] = ['music_groups', 'music', 'groups']) => {
+export const dropTables = async (tableNames: string[] = ['music_groups', 'music', 'groups', 'music_metadata', 'labels']) => {
     const db = await openDatabase();
     
     try {
@@ -564,6 +564,9 @@ export const getMusicWithAllData = async (): Promise<
 
   // Fetch all music items
   const musicItems = await db.getAllAsync<MusicItem>("SELECT * FROM music");
+  const musicMetaItems = await db.getAllAsync<MusicItem>("SELECT * FROM music_metadata");
+
+  console.log(musicItems, musicMetaItems);
 
   if (!musicItems || musicItems.length === 0) {
     console.log("No music here");
