@@ -16,21 +16,14 @@ import {
   getMusicWithMetadata,
   getAllLabels,
   createOrGetLabel,
+  getAllGroups,
+  getGroupsForMusic
 } from '../utils/database';
 
-
-// Updated MetadataFormData interface to include all fields
 interface MetadataFormData {
   title: string;
   groups: string[];
-  composer?: string;
-  genre?: string;
-  key_signature?: string;
-  rating?: number;
-  difficulty?: number;
-  time_signature?: string;
-  page_count?: number;
-  labels?: string[];
+  // No labels here since you're not saving them to DB
 }
 
 interface MetadataFormProps {
@@ -72,7 +65,12 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   const [newLabelText, setNewLabelText] = useState('');
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Groups state
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [availableGroups, setAvailableGroups] = useState<string[]>([]);
+  const [newGroupText, setNewGroupText] = useState('');
+  const [showGroupModal, setShowGroupModal] = useState(false);
 
   // Rating and difficulty arrays for picker-style selection
   const ratings = [1, 2, 3, 4, 5];
@@ -109,24 +107,32 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
 
   const loadData = async () => {
     try {
-      // Load available labels
+      // Load available labels and groups
       const labels = await getAllLabels();
       setAvailableLabels(labels);
+
+      // Load available groups from database
+      const groups = await getAllGroups();
+      setAvailableGroups(groups);
 
       // For edit/view modes, load existing metadata
       if ((mode === 'edit' || mode === 'view') && musicId) {
         if (!initialData) {
           const metadata = await getMusicWithMetadata(musicId);
-          console.log("IN METADATA: ", metadata);
           if (metadata) {
             const { labels, ...metadataOnly } = metadata;
+            const itemGroups = await getGroupsForMusic(musicId); // Separate function
+            console.log("IN METADATA: ", metadata, itemGroups);
             setFormData(metadataOnly);
             setSelectedLabels(labels);
+            setSelectedGroups(itemGroups || []);
           }
         } else {
           const { labels, ...metadataOnly } = initialData;
+          const itemGroups = await getGroupsForMusic(musicId); // Separate function
           setFormData(metadataOnly);
           setSelectedLabels(labels);
+          setSelectedGroups(itemGroups || []);
         }
       }
       // For new items, just set the title if provided
@@ -135,6 +141,8 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           ...prev,
           title: initialTitle
         }));
+        // Set default group for new items
+        setSelectedGroups(['Ungrouped']);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -142,7 +150,6 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     }
   };
 
-  // Updated handleSave function in MetadataForm
   const handleSave = async () => {
     if (!formData.title.trim()) {
       Alert.alert('Error', 'Title is required');
@@ -151,25 +158,17 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
 
     setIsLoading(true);
     try {
-      // For existing items with musicId, save to database directly
+      // For existing items with musicId, save to database
       if (musicId) {
         await saveCompleteMetadata(musicId, formData, selectedLabels);
         Alert.alert('Success', 'Metadata saved successfully');
         console.log('Saving Metadata:', { musicId, formData, selectedLabels });
       }
-      
-      // Always call onSave with ALL the form data
+
+      // Always call onSave with the form data (for both new and existing items)
       onSave({
         title: formData.title,
         groups: selectedGroups,
-        composer: formData.composer,
-        genre: formData.genre,
-        key_signature: formData.key_signature,
-        rating: formData.rating,
-        difficulty: formData.difficulty,
-        time_signature: formData.time_signature,
-        page_count: formData.page_count,
-        labels: selectedLabels,
       });
     } catch (error) {
       console.error('Failed to save metadata:', error);
@@ -185,7 +184,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
 
     try {
       await createOrGetLabel(newLabelText.trim());
-      
+
       // Add to selected labels if not already selected
       if (!selectedLabels.includes(newLabelText.trim())) {
         setSelectedLabels(prev => [...prev, newLabelText.trim()]);
@@ -194,7 +193,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
       // Refresh available labels
       const labels = await getAllLabels();
       setAvailableLabels(labels);
-      
+
       setNewLabelText('');
       setShowLabelModal(false);
     } catch (error) {
@@ -211,6 +210,33 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     );
   };
 
+  const handleAddGroup = () => {
+    if (!newGroupText.trim()) return;
+
+    const groupName = newGroupText.trim();
+
+    // Add to available groups if not already there
+    if (!availableGroups.includes(groupName)) {
+      setAvailableGroups(prev => [...prev, groupName]);
+    }
+
+    // Add to selected groups if not already selected
+    if (!selectedGroups.includes(groupName)) {
+      setSelectedGroups(prev => [...prev, groupName]);
+    }
+
+    setNewGroupText('');
+    setShowGroupModal(false);
+  };
+
+  const toggleGroup = (groupName: string) => {
+    setSelectedGroups(prev =>
+      prev.includes(groupName)
+        ? prev.filter(g => g !== groupName)
+        : [...prev, groupName]
+    );
+  };
+
   const renderRatingSelector = () => (
     <View className="my-3">
       <Text className="text-base font-semibold text-gray-800 mb-2">Rating (1-5 stars)</Text>
@@ -218,14 +244,12 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
         {ratings.map(rating => (
           <TouchableOpacity
             key={rating}
-            className={`bg-white border border-gray-300 rounded-lg py-2 px-3 ${
-              formData.rating === rating ? 'bg-blue-500 border-blue-500' : ''
-            }`}
+            className={`bg-white border border-gray-300 rounded-lg py-2 px-3 ${formData.rating === rating ? 'bg-blue-500 border-blue-500' : ''
+              }`}
             onPress={() => setFormData(prev => ({ ...prev, rating }))}
           >
-            <Text className={`text-base ${
-              formData.rating === rating ? 'text-white' : 'text-gray-800'
-            }`}>
+            <Text className={`text-base ${formData.rating === rating ? 'text-white' : 'text-gray-800'
+              }`}>
               {'★'.repeat(rating)}
             </Text>
           </TouchableOpacity>
@@ -241,14 +265,12 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
         {difficulties.map(difficulty => (
           <TouchableOpacity
             key={difficulty}
-            className={`bg-white border border-gray-300 rounded-lg py-2 px-3 min-w-9 items-center ${
-              formData.difficulty === difficulty ? 'bg-orange-500 border-orange-500' : ''
-            }`}
+            className={`bg-white border border-gray-300 rounded-lg py-2 px-3 min-w-9 items-center ${formData.difficulty === difficulty ? 'bg-orange-500 border-orange-500' : ''
+              }`}
             onPress={() => setFormData(prev => ({ ...prev, difficulty }))}
           >
-            <Text className={`text-base font-semibold ${
-              formData.difficulty === difficulty ? 'text-white' : 'text-gray-800'
-            }`}>
+            <Text className={`text-base font-semibold ${formData.difficulty === difficulty ? 'text-white' : 'text-gray-800'
+              }`}>
               {difficulty}
             </Text>
           </TouchableOpacity>
@@ -259,30 +281,28 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
 
   const renderQuickSelectButtons = (options: string[], field: keyof typeof formData) => {
     const [showAllOptions, setShowAllOptions] = useState(false);
-  
+
     const visibleOptions = showAllOptions ? options : options.slice(0, 5);
     const hiddenCount = options.length - visibleOptions.length;
-  
+
     return (
       <View className="flex-row flex-wrap mt-2">
         {visibleOptions.map(option => (
           <TouchableOpacity
             key={option}
-            className={`bg-white border border-gray-300 rounded-md py-1.5 px-2.5 mr-2 mb-2 ${
-              formData[field] === option ? 'bg-green-500 border-green-500' : ''
-            }`}
+            className={`bg-white border border-gray-300 rounded-md py-1.5 px-2.5 mr-2 mb-2 ${formData[field] === option ? 'bg-green-500 border-green-500' : ''
+              }`}
             onPress={() => setFormData(prev => ({ ...prev, [field]: option }))}
           >
             <Text
-              className={`text-sm ${
-                formData[field] === option ? 'text-white' : 'text-gray-800'
-              }`}
+              className={`text-sm ${formData[field] === option ? 'text-white' : 'text-gray-800'
+                }`}
             >
               {option}
             </Text>
           </TouchableOpacity>
         ))}
-  
+
         {!showAllOptions && hiddenCount > 0 && (
           <TouchableOpacity
             className="bg-gray-200 border border-gray-300 rounded-md py-1.5 px-2.5 mr-2 mb-2"
@@ -294,7 +314,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
       </View>
     );
   };
-  
+
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -306,11 +326,10 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           <Text className="text-lg font-semibold text-gray-800">
             {mode === 'edit' ? 'Edit Metadata' : mode === 'view' ? 'View Metadata' : 'Add Metadata'}
           </Text>
-          <TouchableOpacity 
-            onPress={handleSave} 
-            className={`py-2 px-4 rounded-lg ${
-              isLoading ? 'bg-gray-400' : 'bg-blue-500'
-            }`}
+          <TouchableOpacity
+            onPress={handleSave}
+            className={`py-2 px-4 rounded-lg ${isLoading ? 'bg-gray-400' : 'bg-blue-500'
+              }`}
             disabled={isLoading}
           >
             <Text className="text-white text-base font-semibold">
@@ -388,9 +407,9 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
             <TextInput
               className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
               value={formData.page_count?.toString() || ''}
-              onChangeText={(text) => setFormData(prev => ({ 
-                ...prev, 
-                page_count: parseInt(text) || 0 
+              onChangeText={(text) => setFormData(prev => ({
+                ...prev,
+                page_count: parseInt(text) || 0
               }))}
               placeholder="Enter page count"
               placeholderTextColor="#9CA3AF"
@@ -404,34 +423,71 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           {/* Difficulty */}
           {renderDifficultySelector()}
 
+          {/* Groups */}
+          <View className="my-3">
+            <View className="flex-row justify-between items-center mb-2">
+              <Text className="text-base font-semibold text-gray-800">Groups</Text>
+
+              <TouchableOpacity
+                onPress={() => setShowGroupModal(true)}
+                className="bg-blue-500 px-4 py-2 rounded-md"
+                style={{ minHeight: 36, justifyContent: 'center' }}
+              >
+                <Text className="text-white text-sm font-semibold leading-none self-center" style={{ lineHeight: 18 }}>
+                  + Add Group
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-row flex-wrap gap-2">
+              {availableGroups.map(group => (
+                <TouchableOpacity
+                  key={group}
+                  className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedGroups.includes(group) ? 'bg-blue-500 border-blue-500' : ''
+                    }`}
+                  onPress={() => toggleGroup(group)}
+                >
+                  <Text className={`text-sm ${selectedGroups.includes(group) ? 'text-white' : 'text-gray-800'
+                    }`}>
+                    {group}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {selectedGroups.length === 0 && (
+              <Text className="text-sm text-gray-500 mt-2 italic">
+                No groups selected. Item will be placed in "Ungrouped".
+              </Text>
+            )}
+          </View>
+
           {/* Labels */}
           <View className="my-3">
             <View className="flex-row justify-between items-center mb-2">
-                <Text className="text-base font-semibold text-gray-800">Labels</Text>
-                
-                <TouchableOpacity
-                    onPress={() => setShowLabelModal(true)}
-                    className="bg-green-500 px-4 py-2 rounded-md"
-                    style={{ minHeight: 36, justifyContent: 'center' }}
-                >
-                    <Text className="text-white text-sm font-semibold leading-none self-center" style={{ lineHeight: 18 }}>
-                    + Add Label
-                    </Text>
-                </TouchableOpacity>
+              <Text className="text-base font-semibold text-gray-800">Labels</Text>
+
+              <TouchableOpacity
+                onPress={() => setShowLabelModal(true)}
+                className="bg-green-500 px-4 py-2 rounded-md"
+                style={{ minHeight: 36, justifyContent: 'center' }}
+              >
+                <Text className="text-white text-sm font-semibold leading-none self-center" style={{ lineHeight: 18 }}>
+                  + Add Label
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <View className="flex-row flex-wrap gap-2">
               {availableLabels.map(label => (
                 <TouchableOpacity
                   key={label.id}
-                  className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${
-                    selectedLabels.includes(label.name) ? 'bg-purple-500 border-purple-500' : ''
-                  }`}
+                  className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedLabels.includes(label.name) ? 'bg-purple-500 border-purple-500' : ''
+                    }`}
                   onPress={() => toggleLabel(label.name)}
                 >
-                  <Text className={`text-sm ${
-                    selectedLabels.includes(label.name) ? 'text-white' : 'text-gray-800'
-                  }`}>
+                  <Text className={`text-sm ${selectedLabels.includes(label.name) ? 'text-white' : 'text-gray-800'
+                    }`}>
                     {label.name}
                   </Text>
                 </TouchableOpacity>
@@ -439,6 +495,40 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
             </View>
           </View>
         </ScrollView>
+
+        {/* Add Group Modal */}
+        <Modal visible={showGroupModal} transparent animationType="fade">
+          <View className="flex-1 bg-black/50 justify-center items-center">
+            <View className="bg-white rounded-xl p-6 mx-5 w-full max-w-sm">
+              <Text className="text-lg font-semibold text-gray-800 mb-4 text-center">Add New Group</Text>
+              <TextInput
+                className="border border-gray-300 rounded-lg px-4 py-3 text-base mb-5"
+                value={newGroupText}
+                onChangeText={setNewGroupText}
+                placeholder="Enter group name"
+                placeholderTextColor="#9CA3AF"
+                autoFocus
+              />
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowGroupModal(false);
+                    setNewGroupText('');
+                  }}
+                  className="flex-1 py-3 rounded-lg border border-gray-300 items-center"
+                >
+                  <Text className="text-base text-gray-800">Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleAddGroup}
+                  className="flex-1 bg-blue-500 py-3 rounded-lg items-center"
+                >
+                  <Text className="text-base text-white font-semibold">Add</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Add Label Modal */}
         <Modal visible={showLabelModal} transparent animationType="fade">

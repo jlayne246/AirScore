@@ -560,65 +560,203 @@ export const getAllLabels = async (): Promise<Label[]> => {
 export const getMusicWithAllData = async (): Promise<
   MusicItemWithAllData[]
 > => {
+    const db = await openDatabase();
+
+    // Fetch all music items
+    const musicItems = await db.getAllAsync<MusicItem>("SELECT * FROM music");
+    const musicMetaItems = await db.getAllAsync<MusicItem>("SELECT * FROM music_metadata");
+
+    console.log(musicItems, musicMetaItems);
+
+    if (!musicItems || musicItems.length === 0) {
+        console.log("No music here");
+        return [];
+    }
+
+    try {
+        const result = await Promise.all(
+        musicItems.map(async (music) => {
+            if (!music || typeof music.id === "undefined") {
+            throw new Error("Unable to retrieve music item");
+            }
+
+            // Get groups
+            const groups = await db.getAllAsync<{ name: string }>(
+            `SELECT g.name
+                        FROM groups g
+                        JOIN music_groups mg ON g.id = mg.group_id
+                        WHERE mg.music_id = ?`,
+            [music.id]
+            );
+
+            // Get metadata
+            const metadata = await db.getFirstAsync<MusicMetadata>(
+            "SELECT * FROM music_metadata WHERE id = ?",
+            [music.id]
+            );
+
+            // Get labels for metadata (only if metadata exists)
+            let labels: string[] = [];
+            if (metadata) {
+            const labelResults = await db.getAllAsync<{ name: string }>(
+                `SELECT l.name 
+                            FROM labels l 
+                            JOIN music_labels ml ON l.id = ml.label_id 
+                            WHERE ml.music_id = ?`,
+                [music.id]
+            );
+            labels = labelResults.map((l) => l.name);
+            }
+
+            return {
+            ...music,
+            groups: groups.map((g) => g.name),
+            metadata: metadata ? { ...metadata, labels, groups } : null,
+            };
+        })
+        );
+
+        return result;
+    } catch (error) {
+        console.error("Error fetching music with groups and metadata:", error);
+        throw error;
+    }
+};
+
+
+/**
+ * 
+ * @returns 
+ */
+export const getAllGroups = async (): Promise<string[]> => {
+    const db = await openDatabase();
+
+    try {
+        // Query the groups table directly instead of parsing JSON from music table
+        const result: any = await db.execAsync(`
+            SELECT DISTINCT name as group_name
+            FROM groups
+            WHERE name IS NOT NULL
+            ORDER BY name ASC
+        `);
+
+        const groups: string[] = [];
+
+        // Check if result exists and has rows
+        if (
+        result &&
+        Array.isArray(result) &&
+        result.length > 0 &&
+        result[0]?.rows
+        ) {
+        const rows = result[0].rows;
+
+        // Handle different SQLite result formats
+        if (rows._array && Array.isArray(rows._array)) {
+            // If rows has _array property (common in React Native SQLite)
+            rows._array.forEach((row: any) => {
+            if (row.group_name) {
+                groups.push(row.group_name);
+            }
+            });
+        } else if (typeof rows.length === "number") {
+            // If rows is array-like but not an actual array
+            for (let i = 0; i < rows.length; i++) {
+            const row = rows.item ? rows.item(i) : rows[i];
+            if (row?.group_name) {
+                groups.push(row.group_name);
+            }
+            }
+        } else {
+            // If rows is iterable
+            try {
+            for (const row of rows) {
+                if (row?.group_name) {
+                groups.push(row.group_name);
+                }
+            }
+            } catch {
+            // Fallback if iteration fails
+            console.warn("Unable to iterate over rows");
+            }
+        }
+        }
+
+        // Always include "Ungrouped" as an option
+        if (!groups.includes("Ungrouped")) {
+        groups.unshift("Ungrouped");
+        }
+
+        return groups;
+    } catch (error) {
+        console.error("Error getting all groups:", error);
+        return ["Ungrouped"]; // Return default group on error
+    }
+};
+
+export const getGroupsForMusic = async (musicId: number): Promise<string[]> => {
   const db = await openDatabase();
 
-  // Fetch all music items
-  const musicItems = await db.getAllAsync<MusicItem>("SELECT * FROM music");
-  const musicMetaItems = await db.getAllAsync<MusicItem>("SELECT * FROM music_metadata");
-
-  console.log(musicItems, musicMetaItems);
-
-  if (!musicItems || musicItems.length === 0) {
-    console.log("No music here");
-    return [];
-  }
-
   try {
-    const result = await Promise.all(
-      musicItems.map(async (music) => {
-        if (!music || typeof music.id === "undefined") {
-          throw new Error("Unable to retrieve music item");
-        }
-
-        // Get groups
-        const groups = await db.getAllAsync<{ name: string }>(
-          `SELECT g.name
-                     FROM groups g
-                     JOIN music_groups mg ON g.id = mg.group_id
-                     WHERE mg.music_id = ?`,
-          [music.id]
-        );
-
-        // Get metadata
-        const metadata = await db.getFirstAsync<MusicMetadata>(
-          "SELECT * FROM music_metadata WHERE id = ?",
-          [music.id]
-        );
-
-        // Get labels for metadata (only if metadata exists)
-        let labels: string[] = [];
-        if (metadata) {
-          const labelResults = await db.getAllAsync<{ name: string }>(
-            `SELECT l.name 
-                         FROM labels l 
-                         JOIN music_labels ml ON l.id = ml.label_id 
-                         WHERE ml.music_id = ?`,
-            [music.id]
-          );
-          labels = labelResults.map((l) => l.name);
-        }
-
-        return {
-          ...music,
-          groups: groups.map((g) => g.name),
-          metadata: metadata ? { ...metadata, labels } : null,
-        };
-      })
+    // Query to get groups associated with a specific music item
+    // This assumes you have a junction table like 'music_groups' or similar
+    const result: any = await db.execAsync(
+      `
+        SELECT g.name as group_name
+        FROM groups g
+        INNER JOIN music_groups mg ON g.id = mg.group_id
+        WHERE mg.music_id = ?
+        ORDER BY g.name ASC
+      `,
+      [musicId]
     );
 
-    return result;
+    const groups: string[] = [];
+
+    // Check if result exists and has rows
+    if (
+      result &&
+      Array.isArray(result) &&
+      result.length > 0 &&
+      result[0]?.rows
+    ) {
+      const rows = result[0].rows;
+
+      // Handle different SQLite result formats
+      if (rows._array && Array.isArray(rows._array)) {
+        // If rows has _array property (common in React Native SQLite)
+        rows._array.forEach((row: any) => {
+          if (row.group_name) {
+            groups.push(row.group_name);
+          }
+        });
+      } else if (typeof rows.length === "number") {
+        // If rows is array-like but not an actual array
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows.item ? rows.item(i) : rows[i];
+          if (row?.group_name) {
+            groups.push(row.group_name);
+          }
+        }
+      } else {
+        // If rows is iterable
+        try {
+          for (const row of rows) {
+            if (row?.group_name) {
+              groups.push(row.group_name);
+            }
+          }
+        } catch {
+          // Fallback if iteration fails
+          console.warn("Unable to iterate over groups");
+        }
+      }
+    }
+
+    // If no groups found, return 'Ungrouped' as default
+    return groups.length > 0 ? groups : ["Ungrouped"];
   } catch (error) {
-    console.error("Error fetching music with groups and metadata:", error);
-    throw error;
+    console.error("Error getting groups for music:", error);
+    return ["Ungrouped"]; // Return default group on error
   }
 };

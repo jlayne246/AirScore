@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, Button, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { RefreshControl, View, ScrollView, Text, FlatList, Button, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 
@@ -28,6 +28,8 @@ const LibraryScreen = ({}) => {
 
     const navigation = useNavigation<NavigationProp>();
 
+    const [refreshing, setRefreshing] = React.useState(false);
+
     useEffect(() => {
         initDB();
         loadMusic(); // Call on mount
@@ -46,6 +48,14 @@ const LibraryScreen = ({}) => {
         const results = await getMusicWithAllData();
         setMusicList(results);
     };
+
+    const onRefresh = React.useCallback(async () => {
+        setRefreshing(true);
+        await refreshMusicList();
+        setTimeout(() => {
+        setRefreshing(false);
+        }, 2000);
+    }, [refreshMusicList]);
 
     // Handle opening metadata form
     const handleEditMetadata = (musicId: number, musicTitle: string) => {
@@ -200,6 +210,9 @@ const LibraryScreen = ({}) => {
                     renderItem={renderMusicItem}
                     keyExtractor={(item, index) => item.id?.toString() || index.toString()}
                     className="p-4"
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                      }
                 />
             ) : (
                 <View className="flex-1 items-center justify-center px-4">
