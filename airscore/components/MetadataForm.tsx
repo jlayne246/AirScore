@@ -17,7 +17,9 @@ import {
   getAllLabels,
   createOrGetLabel,
   getAllGroups,
-  getGroupsForMusic
+  setMusicGroups,
+  getGroupsForMusic,
+  addMusicToGroup
 } from '../utils/database';
 
 interface MetadataFormData {
@@ -88,6 +90,8 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   // Common time signatures
   const timeSignatures = ['4/4', '3/4', '2/4', '6/8', '9/8', '12/8', '2/2', '3/8'];
 
+  console.log(mode);
+
   // Load initial data and available labels
   useEffect(() => {
     if (visible) {
@@ -115,14 +119,17 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
       const groups = await getAllGroups();
       setAvailableGroups(groups);
 
+      console.log(musicId, groups);
+
       // For edit/view modes, load existing metadata
       if ((mode === 'edit' || mode === 'view') && musicId) {
+        console.log("Initial: ", initialData)
         if (!initialData) {
           const metadata = await getMusicWithMetadata(musicId);
           if (metadata) {
             const { labels, ...metadataOnly } = metadata;
             const itemGroups = await getGroupsForMusic(musicId); // Separate function
-            console.log("IN METADATA: ", metadata, itemGroups);
+            console.log("IN METADATA: ", labels, metadataOnly, itemGroups);
             setFormData(metadataOnly);
             setSelectedLabels(labels);
             setSelectedGroups(itemGroups || []);
@@ -133,6 +140,8 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           setFormData(metadataOnly);
           setSelectedLabels(labels);
           setSelectedGroups(itemGroups || []);
+
+          console.log("Data - ", labels, metadataOnly, itemGroups)
         }
       }
       // For new items, just set the title if provided
@@ -142,7 +151,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           title: initialTitle
         }));
         // Set default group for new items
-        setSelectedGroups(['Ungrouped']);
+        setSelectedGroups([]);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -161,6 +170,9 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
       // For existing items with musicId, save to database
       if (musicId) {
         await saveCompleteMetadata(musicId, formData, selectedLabels);
+
+        await setMusicGroups(musicId, selectedGroups);
+
         Alert.alert('Success', 'Metadata saved successfully');
         console.log('Saving Metadata:', { musicId, formData, selectedLabels });
       }

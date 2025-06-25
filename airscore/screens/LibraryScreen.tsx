@@ -13,6 +13,8 @@ import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, del
 import MetadataForm from '../components/MetadataForm'; // Adjust path as needed
 import DeleteModal from '../components/DeleteModal'; // Adjust path as needed
 
+import * as troubleshooting from "../utils/troubleshooting";
+
 const LibraryScreen = ({}) => {
     const [musicList, setMusicList] = useState<Array<MusicItem & { groups: string[] }>>([]);
     const [selectedMusicId, setSelectedMusicId] = useState<number | undefined>();
@@ -70,16 +72,20 @@ const LibraryScreen = ({}) => {
         setShowMetadataForm(false);
         setSelectedMusicId(undefined);
         setPrefilledTitle(undefined);
+        
       
         if (formData && pendingPdfUri) {
           try {
             const now = new Date().toISOString();
+
+            const cleanGroups = (formData.groups ?? []).filter(g => g !== "Ungrouped");
+            const groupsToInsert = cleanGroups.length > 0 ? cleanGroups : []; // <- not ['Ungrouped']
             
             // Create the music record first
             const insertedId = await insertMusic(
               formData.title,
               pendingPdfUri,
-              formData.groups ?? ['Ungrouped'],
+              groupsToInsert,
               now
             );
 
@@ -107,6 +113,10 @@ const LibraryScreen = ({}) => {
             await loadMusic(); // Refresh the music list
           } catch (err) {
             console.error('Error saving music and metadata:', err);
+            
+            if (err instanceof Error) {
+                console.error("Line Info:", troubleshooting.getLineFromStack(err.stack));
+            }
           }
         } else if (formData && selectedMusicId) {
           // This is for editing existing items - metadata form handles this
