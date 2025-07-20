@@ -1,6 +1,7 @@
 export type RootStackParamList = {
   Library: undefined;
   Reader: { uri: string };
+  Dashboard: undefined;
 };
 
 // Define types for music items

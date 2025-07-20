@@ -1,14 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { RefreshControl, View, ScrollView, Text, FlatList, Button, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { RefreshControl, View, ScrollView, Text, FlatList, SectionList, Animated, Button, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
+import { Entypo } from '@expo/vector-icons';
 
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, MusicItem, MusicItemWithAllData, MetadataFormData } from '../types';
+import { RootStackParamList, MusicItem, MusicItemWithAllData, MetadataFormData, MusicMetadata } from '../types';
 
 import { UploadLocalPDF } from '../utils/fileUtils';
 import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic, saveCompleteMetadata } from "../utils/database";
+
+import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
 
 import MetadataForm from '../components/MetadataForm'; // Adjust path as needed
 import DeleteModal from '../components/DeleteModal'; // Adjust path as needed
@@ -26,6 +29,10 @@ const LibraryScreen = ({}) => {
     const [showDeleteForm, setShowDeleteForm] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    const [showAZ, setShowAZ] = useState(false);
+    const [indicatorLetter, setIndicatorLetter] = useState('');
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
     type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Library'>;
 
     const navigation = useNavigation<NavigationProp>();
@@ -36,6 +43,7 @@ const LibraryScreen = ({}) => {
         initDB();
         loadMusic(); // Call on mount
     }, []);
+    
 
     const loadMusic = async () => {
         try {
@@ -162,6 +170,57 @@ const LibraryScreen = ({}) => {
         navigation.navigate('Reader', { uri });
     };
 
+    const groupMusicByLetter = (items: typeof musicList) => {
+        const groups: Record<string, typeof musicList> = {};
+      
+        items.forEach(item => {
+          const title = item?.title || item.title || '';
+          const letter = title[0]?.toUpperCase() || '#';
+          if (!groups[letter]) groups[letter] = [];
+          groups[letter].push(item);
+        });
+      
+        return Object.keys(groups)
+          .sort()
+          .map(letter => ({
+            title: letter,
+            data: groups[letter],
+          }));
+      };
+      
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+      const grouped = groupMusicByLetter(musicList);
+
+      // Show letter briefly
+    const flashLetter = (letter: string) => {
+        setIndicatorLetter(letter);
+        Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+        }).start(() => {
+        setTimeout(() => {
+            Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+            }).start();
+        }, 700);
+        });
+    };
+
+    const scrollToLetter = (letter: string) => {
+        const index = grouped.findIndex(section => section.title === letter);
+        if (index !== -1 && sectionListRef.current) {
+        sectionListRef.current.scrollToLocation({
+            sectionIndex: index,
+            itemIndex: 0,
+            animated: true,
+        });
+        flashLetter(letter);
+        }
+    };
+
     // Render individual music item
     const renderMusicItem = ({ item }: { item: MusicItemWithAllData }) => (
         <View className="bg-white rounded-lg p-4 mb-3 flex-row justify-between items-center shadow-sm shadow-black/10 elevation-3">
@@ -179,20 +238,71 @@ const LibraryScreen = ({}) => {
         
         <View className="flex-row gap-2">
             {/* Edit Metadata Button */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
             className="bg-blue-500 py-1.5 px-3 rounded"
             onPress={() =>
                 item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)
               }
             >
                 <Text className="text-white text-xs font-semibold">Info</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             
             {/* Your existing buttons (play, edit, delete, etc.) */}
-            <TouchableOpacity className="bg-red-500 py-1.5 px-3 rounded"
+            {/* <TouchableOpacity className="bg-red-500 py-1.5 px-3 rounded"
             onPress={() => item.id && handleDelete(item.id)}>
                 <Text className="text-white text-xs font-semibold">Delete</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
+
+            {/* <TouchableOpacity onPress={() => console.log("Menu")}>
+                <Entypo name='dots-three-vertical' size={20} color={"gray"} />
+            </TouchableOpacity> */}
+
+            <Menu>
+                <MenuTrigger>
+                    <Entypo name='dots-three-vertical' size={20} color={"gray"} />
+                </MenuTrigger>
+                <MenuOptions
+                    customStyles={{
+                        optionsContainer: {
+                            backgroundColor: 'white',
+                            borderRadius: 8,
+                            paddingVertical: 4,
+                            elevation: 5,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.2,
+                            shadowRadius: 4,
+                            marginTop: 20,
+                            width: 150
+                        }
+                    }}
+                >
+                    <MenuOption
+                        onSelect={() => item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)}
+                        customStyles={{
+                            optionWrapper: {padding: 10},
+                            optionText: {fontSize: 14, color: '#333'}
+                        }}
+                        text='Edit Details'
+                    />
+                    <MenuOption
+                        onSelect={() => item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)}
+                        customStyles={{
+                            optionWrapper: {padding: 10},
+                            optionText: {fontSize: 14, color: '#333'}
+                        }}
+                        text='Share'
+                    />
+                    <MenuOption
+                        onSelect={() => console.log("Delete")}
+                        customStyles={{
+                            optionWrapper: {padding: 10},
+                            optionText: {fontSize: 14, color: '#333'}
+                        }}
+                        text='Delete'
+                    />
+                </MenuOptions>
+            </Menu>
         </View>
         </View>
     );
@@ -212,18 +322,36 @@ const LibraryScreen = ({}) => {
     //     </View>
     // )
 
+    const sections = groupMusicByLetter(musicList);
+    const sectionListRef = useRef<SectionList>(null);
+
     return (
         <View className="flex-1 bg-white-100">
             {musicList && musicList.length > 0 ? (
-                <FlatList
-                    data={musicList}
-                    renderItem={renderMusicItem}
+                // <FlatList
+                //     data={musicList}
+                //     renderItem={renderMusicItem}
+                //     keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                //     className="p-4"
+                //     refreshControl={
+                //         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                //       }
+                // />
+                <SectionList
+                    ref={sectionListRef}
+                    sections={sections}
                     keyExtractor={(item, index) => item.id?.toString() || index.toString()}
-                    className="p-4"
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                      }
+                    renderItem={renderMusicItem}
+                    renderSectionHeader={({ section: { title } }) => (
+                        <View className="bg-gray-100 px-4 py-1">
+                          <Text className="text-base font-bold text-gray-700">{title}</Text>
+                        </View>
+                      )}
+                      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                      contentContainerStyle={{ paddingBottom: 100 }}
+                      className="px-4"
                 />
+
             ) : (
                 <View className="flex-1 items-center justify-center px-4">
                     <Text className="text-center text-sm text-gray-600">
@@ -232,6 +360,45 @@ const LibraryScreen = ({}) => {
                 </View>
             )}
 
+            {/* Show/Hide Sidebar */}
+            <TouchableOpacity
+                className="absolute right-4 bottom-6 bg-gray-800 px-3 py-2 rounded-full"
+                onPress={() => setShowAZ(true)}
+            >
+                <Text className="text-white text-sm font-medium">Scroll</Text>
+            </TouchableOpacity>
+
+            {/* A–Z Sidebar */}
+            {showAZ && (
+                <View className="absolute right-1 top-20 bottom-20 justify-center items-center bg-white/80 rounded-md px-1">
+                {alphabet.map(letter => (
+                    <TouchableOpacity key={letter} onPress={() => {
+                    scrollToLetter(letter);
+                    // auto-hide sidebar
+                    setTimeout(() => setShowAZ(false), 1000);
+                    }}>
+                    <Text className="text-xs text-gray-600 py-0.5 px-1">{letter}</Text>
+                    </TouchableOpacity>
+                ))}
+                </View>
+            )}
+
+            {/* Floating Indicator */}
+            {indicatorLetter !== '' && (
+                <Animated.View
+                style={{
+                    opacity: fadeAnim,
+                    position: 'absolute',
+                    alignSelf: 'center',
+                    top: '45%',
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    padding: 20,
+                    borderRadius: 12,
+                }}
+                >
+                <Text className="text-white text-3xl font-bold">{indicatorLetter}</Text>
+                </Animated.View>
+            )}
 
 
             {/* Metadata Form Modal */}

@@ -12,6 +12,8 @@ import ReaderScreen from './screens/ReaderScreen';
 import DevToolsButton from "./components/DevToolsButton";
 import TestComponent from "./components/TestTailwind";
 
+import { MenuProvider } from 'react-native-popup-menu';
+
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -26,12 +28,15 @@ export default function App() {
     <View style={{ flex: 1, backgroundColor: 'black' }}>
 
      {/* <View className="flex-1 bg-black"> */}
-       <NavigationContainer>
-         <Stack.Navigator initialRouteName="Library">
-           <Stack.Screen name="Library" component={LibraryScreen} />
-           <Stack.Screen name="Reader" component={ReaderScreen} />
-         </Stack.Navigator>
-       </NavigationContainer>
+       <MenuProvider>
+        <NavigationContainer>
+          <Stack.Navigator initialRouteName="Library">
+            <Stack.Screen name="Dashboard" component={LibraryScreen} />
+            <Stack.Screen name="Library" component={LibraryScreen} />
+            <Stack.Screen name="Reader" component={ReaderScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+       </MenuProvider>
 
        {__DEV__ && <DevToolsButton />}
      </View>
