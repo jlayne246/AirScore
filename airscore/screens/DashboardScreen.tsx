@@ -42,6 +42,8 @@ const DashboardScreen = ({}) => {
 
     }, [navigation]);
 
+    const [recentMusicItems, setRecentMusicItems] = useState<MusicItemWithAllData[]>([]);
+
     return (
         <View className="flex-1 bg-white">
             {/* Quick Options Menu */}
@@ -77,6 +79,31 @@ const DashboardScreen = ({}) => {
 
             <View className='flex-1 ml-14'>
                 <Text className="text-dodger text-xl mt-4">Recent Items</Text>
+
+                {recentMusicItems && (recentMusicItems.length > 0) ? (
+                    <FlatList
+                        data={recentMusicItems}
+                        renderItem={({ item }) => (
+                            <MusicItemCard
+                                item={item as MusicItemWithAllData}
+                                onEditMetadata={(id, title) => console.log(`Edit ${id} with title ${title}`)}
+                                onDelete={(id) => console.log(`Delete ${id}`)}
+                                onShare={(id) => console.log(`Share ${id}`)}
+                            />
+                    )}
+                    keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                    contentContainerStyle={{ padding: 10 }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={false}
+                            onRefresh={() => console.log('Refreshing...')}
+                        />
+                    } />
+                ) : (
+                    <View className="flex-1 justify-center items-center">
+                        <Text className="text-gray-500 text-lg">No recent items.</Text>
+                    </View>
+                )}
             </View>
 
             {/* Placeholder for future content */}
