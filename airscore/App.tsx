@@ -8,6 +8,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 // Imports the different screens
 import LibraryScreen from './screens/LibraryScreen';
 import ReaderScreen from './screens/ReaderScreen';
+import DashboardScreen from './screens/DashboardScreen';
 
 import DevToolsButton from "./components/DevToolsButton";
 import TestComponent from "./components/TestTailwind";
@@ -30,8 +31,8 @@ export default function App() {
      {/* <View className="flex-1 bg-black"> */}
        <MenuProvider>
         <NavigationContainer>
-          <Stack.Navigator initialRouteName="Library">
-            <Stack.Screen name="Dashboard" component={LibraryScreen} />
+          <Stack.Navigator initialRouteName="Dashboard">
+            <Stack.Screen name="Dashboard" component={DashboardScreen} />
             <Stack.Screen name="Library" component={LibraryScreen} />
             <Stack.Screen name="Reader" component={ReaderScreen} />
           </Stack.Navigator>
