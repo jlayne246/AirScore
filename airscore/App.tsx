@@ -5,6 +5,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 // Imports the different screens
 import LibraryScreen from './screens/LibraryScreen';
 import ReaderScreen from './screens/ReaderScreen';
@@ -26,21 +28,23 @@ export default function App() {
     console.log(showDevTools)
 
     return (
-      <View style={{ flex: 1, backgroundColor: 'black' }}>
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: 'black' }}>
 
-      {/* <View className="flex-1 bg-black"> */}
-        <MenuProvider>
-          <NavigationContainer>
-            <Stack.Navigator initialRouteName="Dashboard">
-              <Stack.Screen name="Dashboard" component={DashboardScreen} />
-              <Stack.Screen name="Library" component={LibraryScreen} />
-              <Stack.Screen name="Reader" component={ReaderScreen} />
-            </Stack.Navigator>
-          </NavigationContainer>
-        </MenuProvider>
+        {/* <View className="flex-1 bg-black"> */}
+          <MenuProvider>
+            <NavigationContainer>
+              <Stack.Navigator initialRouteName="Dashboard">
+                <Stack.Screen name="Dashboard" component={DashboardScreen} />
+                <Stack.Screen name="Library" component={LibraryScreen} />
+                <Stack.Screen name="Reader" component={ReaderScreen} />
+              </Stack.Navigator>
+            </NavigationContainer>
+          </MenuProvider>
 
-        {__DEV__ && <DevToolsButton />}
-      </View>
+          {__DEV__ && <DevToolsButton />}
+        </View>
+      </SafeAreaProvider>
     );  
   }
 
