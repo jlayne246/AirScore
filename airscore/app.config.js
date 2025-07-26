@@ -34,6 +34,9 @@ export default ({ config }) => ({
     },
     edgeToEdgeEnabled: true,
   },
+  updates: {
+    fallbackToCacheTimeout: 0
+  },
   web: {
     favicon: "./assets/favicon.png",
   },
