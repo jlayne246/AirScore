@@ -20,38 +20,38 @@ import { RootStackParamList } from './types';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
-  // The __DEV__ constant is true when in development mode
-  const showDevTools = __DEV__;
+    // The __DEV__ constant is true when in development mode
+    const showDevTools = __DEV__;
 
-  console.log(showDevTools)
+    console.log(showDevTools)
 
-  return (
-    <View style={{ flex: 1, backgroundColor: 'black' }}>
+    return (
+      <View style={{ flex: 1, backgroundColor: 'black' }}>
 
-     {/* <View className="flex-1 bg-black"> */}
-       <MenuProvider>
-        <NavigationContainer>
-          <Stack.Navigator initialRouteName="Dashboard">
-            <Stack.Screen name="Dashboard" component={DashboardScreen} />
-            <Stack.Screen name="Library" component={LibraryScreen} />
-            <Stack.Screen name="Reader" component={ReaderScreen} />
-          </Stack.Navigator>
-        </NavigationContainer>
-       </MenuProvider>
+      {/* <View className="flex-1 bg-black"> */}
+        <MenuProvider>
+          <NavigationContainer>
+            <Stack.Navigator initialRouteName="Dashboard">
+              <Stack.Screen name="Dashboard" component={DashboardScreen} />
+              <Stack.Screen name="Library" component={LibraryScreen} />
+              <Stack.Screen name="Reader" component={ReaderScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </MenuProvider>
 
-       {__DEV__ && <DevToolsButton />}
-     </View>
-   );  
- }
+        {__DEV__ && <DevToolsButton />}
+      </View>
+    );  
+  }
 
- const styles = StyleSheet.create({
-   container: {
-     flex: 1,
-     backgroundColor: '#fff',
-     alignItems: 'center',
-     justifyContent: 'center',
-   },
- });
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: '#fff',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });
 
 
 

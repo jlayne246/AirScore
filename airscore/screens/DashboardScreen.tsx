@@ -47,7 +47,7 @@ const DashboardScreen = ({}) => {
     return (
         <View className="flex-1 bg-white">
             {/* Quick Options Menu */}
-            <View className="flex-row justify-between p-4 mt-4 mb-4 bg-white shadow-md w-[75%] self-center rounded-lg">
+            <View className="flex-row justify-between pt-10 pb-10 mt-4 mb-4 bg-white shadow-md w-[75%] self-center rounded-lg">
                 {/* Library */}
                 <View className="flex-1 justify-center items-center">
                     <TouchableOpacity className="p-2 m-1 rounded justify-center items-center w-full" onPress={() => navigation.navigate('Library')}>
