@@ -12,14 +12,18 @@ import { UploadLocalPDF } from '../utils/fileUtils';
 import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic, saveCompleteMetadata } from "../utils/database";
 
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
+import { SearchBar } from '@rneui/themed'; // or from 'react-native-elements'
+import { ButtonGroup } from '@rneui/themed';
 
 import MetadataForm from '../components/MetadataForm'; // Adjust path as needed
 import DeleteModal from '../components/DeleteModal'; // Adjust path as needed
 
 import * as troubleshooting from "../utils/troubleshooting";
 
+type FilterOption = 'title' | 'composer' | 'group' | 'all';
+
 const LibraryScreen = ({}) => {
-    const [musicList, setMusicList] = useState<Array<MusicItem & { groups: string[] }>>([]);
+    const [musicList, setMusicList] = useState<Array<MusicItemWithAllData>>([]);
     const [selectedMusicId, setSelectedMusicId] = useState<number | undefined>();
     const [deletedMusicId, setDeletedMusicId] = useState<number>();
     const [pendingPdfUri, setPendingPdfUri] = useState<string | null>(null);
@@ -28,6 +32,9 @@ const LibraryScreen = ({}) => {
     const [showMetadataForm, setShowMetadataForm] = useState(false);
     const [showDeleteForm, setShowDeleteForm] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterBy, setFilterBy] = useState<FilterOption>('all');
+    const [showFilterButton, setShowFilterButton] = useState(false);
 
     const [showAZ, setShowAZ] = useState(false);
     const [indicatorLetter, setIndicatorLetter] = useState('');
@@ -38,6 +45,22 @@ const LibraryScreen = ({}) => {
     const navigation = useNavigation<NavigationProp>();
 
     const [refreshing, setRefreshing] = React.useState(false);
+
+    const filterOptions: FilterOption[] = ["all", "title", "composer", "group"];
+    const [selectedIndex, setSelectedIndex] = useState(0);
+
+    const filterButtons = ['All', 'Title', 'Composer', 'Group'];
+    const filterMap: Record<number, FilterOption> = {
+        0: 'all',
+        1: 'title',
+        2: 'composer',
+        3: 'group',
+    };
+
+    useEffect(() => {
+        const option = filterOptions[selectedIndex];
+        setFilterBy(option);
+    }, [selectedIndex]);
 
     useEffect(() => {
         initDB();
@@ -145,20 +168,20 @@ const LibraryScreen = ({}) => {
     const handleImport = async () => {
         setLoading(true);
         const uri = await UploadLocalPDF();
-      
+    
         if (uri) {
-          const raw_title = uri.split('/').pop() || 'Untitled';
-          const title = raw_title.replace('.pdf', '');
-      
-          setPendingPdfUri(uri);              // store the file path
-          setPrefilledTitle(title);          // prefill title for metadata form
-          setInfoboxMode("new"); 
-          setShowMetadataForm(true);         // show metadata form
+        const raw_title = uri.split('/').pop() || 'Untitled';
+        const title = raw_title.replace('.pdf', '');
+    
+        setPendingPdfUri(uri);              // store the file path
+        setPrefilledTitle(title);          // prefill title for metadata form
+        setInfoboxMode("new"); 
+        setShowMetadataForm(true);         // show metadata form
         }
-      
+    
         setLoading(false);
-      };
-      
+    };
+    
     
     const handleDelete = async (id: number) => {
         console.log("Handling Delete")
@@ -172,24 +195,42 @@ const LibraryScreen = ({}) => {
 
     const groupMusicByLetter = (items: typeof musicList) => {
         const groups: Record<string, typeof musicList> = {};
-      
+    
         items.forEach(item => {
-          const title = item?.title || item.title || '';
-          const letter = title[0]?.toUpperCase() || '#';
-          if (!groups[letter]) groups[letter] = [];
-          groups[letter].push(item);
+            const title = item?.title || item.title || '';
+            const letter = title[0]?.toUpperCase() || '#';
+            if (!groups[letter]) groups[letter] = [];
+            groups[letter].push(item);
         });
-      
+    
         return Object.keys(groups)
-          .sort()
-          .map(letter => ({
+        .sort()
+        .map(letter => ({
             title: letter,
             data: groups[letter],
-          }));
-      };
-      
-      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-      const grouped = groupMusicByLetter(musicList);
+        }));
+    };
+    
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+    const filteredMusic = musicList.filter((item) => {
+        const title = item.metadata?.title?.toLowerCase() || '';
+        const composer = item.metadata?.composer?.toLowerCase() || '';
+        const groupArray = item.groups || [];
+        const groupMatch = groupArray.some(g => g.toLowerCase().includes(query));
+
+        const query = searchQuery.toLowerCase();
+
+        if (filterBy === 'title') return title.includes(query);
+        if (filterBy === 'composer') return composer.includes(query);
+        if (filterBy === 'group') return groupMatch;
+        
+        // Default: search across all
+        return title.includes(query) || composer.includes(query) || groupMatch;
+    });
+
+
+    const grouped = groupMusicByLetter(filteredMusic);
 
       // Show letter briefly
     const flashLetter = (letter: string) => {
@@ -226,6 +267,7 @@ const LibraryScreen = ({}) => {
         <View className="bg-white rounded-lg p-4 mb-3 flex-row justify-between items-center shadow-sm shadow-black/10 elevation-3">
         <View className="flex-1">
             <Text className="text-base font-semibold text-gray-800 mb-1">{item.metadata?.title ?? '[No title]'}</Text>
+            <Text className="text-sm text-gray-600">Composer: {item.metadata?.composer ?? '[No composer]'}</Text>
             <Text className="text-sm text-gray-600">
             Groups: {item.groups.length > 0 ? item.groups.join(', ') : 'None'}
             </Text>
@@ -322,11 +364,48 @@ const LibraryScreen = ({}) => {
     //     </View>
     // )
 
-    const sections = groupMusicByLetter(musicList);
+    //const sections = groupMusicByLetter(musicList);
+    const sections = groupMusicByLetter(filteredMusic);
     const sectionListRef = useRef<SectionList>(null);
 
     return (
         <View className="flex-1 bg-white-100">
+            <View className='mb-4 pl-2 bg-white'>
+                <SearchBar
+                    placeholder="Search by title..."
+                    onChangeText={setSearchQuery}
+                    value={searchQuery}
+                    platform="default"
+                    containerStyle={{ backgroundColor: 'white', borderBottomColor: 'transparent', borderTopColor: 'transparent' }}
+                    inputContainerStyle={{ backgroundColor: '#f0f0f0' }}
+                    inputStyle={{ color: '#333' }}
+                    round
+                />
+
+                <Button title="Filter" onPress={() => setShowFilterButton(!showFilterButton)} />
+
+                {showFilterButton && (
+                    <ButtonGroup
+                        buttons={filterButtons}
+                        selectedIndex={filterButtons.findIndex(b => b.toLowerCase() === filterBy)}
+                        onPress={(index) => setFilterBy(filterMap[index])}
+                        containerStyle={{ margin: 10 }}
+                    />
+                )}
+            </View>
+
+            {((searchQuery !== '') && (sections.length === 0)) && (
+                <Text style={{ padding: 16, fontSize: 16, color: '#777' }}>
+                No results found.
+                </Text>
+            )} 
+            
+            { (searchQuery !== '') && (
+                <Text style={{ padding: 16, fontSize: 16, color: '#777' }}>
+                Showing results for "{searchQuery}"
+                </Text>
+            )}
+
             {musicList && musicList.length > 0 ? (
                 // <FlatList
                 //     data={musicList}
@@ -344,12 +423,12 @@ const LibraryScreen = ({}) => {
                     renderItem={renderMusicItem}
                     renderSectionHeader={({ section: { title } }) => (
                         <View className="bg-gray-100 px-4 py-1">
-                          <Text className="text-base font-bold text-gray-700">{title}</Text>
+                        <Text className="text-base font-bold text-gray-700">{title}</Text>
                         </View>
-                      )}
-                      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                      contentContainerStyle={{ paddingBottom: 100 }}
-                      className="px-4"
+                    )}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                    className="px-4"
                 />
 
             ) : (
