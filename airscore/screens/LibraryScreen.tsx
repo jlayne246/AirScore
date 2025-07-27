@@ -382,7 +382,7 @@ const LibraryScreen = ({}) => {
                     round
                 />
 
-                <Button title="Filter" onPress={() => setShowFilterButton(!showFilterButton)} />
+                <Button title={`Search by: ${filterBy}`} onPress={() => setShowFilterButton(!showFilterButton)} />
 
                 {showFilterButton && (
                     <ButtonGroup
@@ -394,17 +394,17 @@ const LibraryScreen = ({}) => {
                 )}
             </View>
 
-            {((searchQuery !== '') && (sections.length === 0)) && (
-                <Text style={{ padding: 16, fontSize: 16, color: '#777' }}>
-                No results found.
-                </Text>
-            )} 
-            
             { (searchQuery !== '') && (
                 <Text style={{ padding: 16, fontSize: 16, color: '#777' }}>
                 Showing results for "{searchQuery}"
                 </Text>
             )}
+
+            {((searchQuery !== '') && (sections.length === 0)) && (
+                <Text style={{ padding: 16, fontSize: 16, color: '#777' }}>
+                No results found.
+                </Text>
+            )} 
 
             {musicList && musicList.length > 0 ? (
                 // <FlatList
