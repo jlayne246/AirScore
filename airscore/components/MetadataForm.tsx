@@ -10,7 +10,7 @@ import {
   FlatList,
   Dimensions,
 } from 'react-native';
-import { MusicMetadata, Label, MusicMetadataWithLabels } from '../types';
+import { MusicMetadata, Label, MusicMetadataWithLabels, MetadataFormData } from '../types';
 import {
   saveCompleteMetadata,
   getMusicWithMetadata,
@@ -21,12 +21,6 @@ import {
   getGroupsForMusic,
   addMusicToGroup
 } from '../utils/database';
-
-interface MetadataFormData {
-  title: string;
-  groups: string[];
-  // No labels here since you're not saving them to DB
-}
 
 interface MetadataFormProps {
   musicId?: number;
@@ -137,6 +131,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
         } else {
           const { labels, ...metadataOnly } = initialData;
           const itemGroups = await getGroupsForMusic(musicId); // Separate function
+          console.log("Initial Data: ", labels, metadataOnly, itemGroups);
           setFormData(metadataOnly);
           setSelectedLabels(labels);
           setSelectedGroups(itemGroups || []);
@@ -146,10 +141,30 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
       }
       // For new items, just set the title if provided
       else if (initialTitle) {
-        setFormData(prev => ({
-          ...prev,
-          title: initialTitle
-        }));
+        // setFormData(prev => ({
+        //   ...prev,
+        //   title: initialTitle
+        // }));
+        // setFormData(prev => {
+        //   console.log('prev:', prev); // This will log the previous state
+        //   return {
+        //     ...prev,
+        //     title: initialTitle
+        //   };
+        // });
+        setFormData({
+          title: initialTitle,
+          composer: '',
+          genre: '',
+          key_signature: '',
+          rating: 0,
+          difficulty: 0,
+          time_signature: '',
+          page_count: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        console.log(formData)
         // Set default group for new items
         setSelectedGroups([]);
       }
@@ -168,7 +183,9 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     setIsLoading(true);
     try {
       // For existing items with musicId, save to database
+      //console.log("Saving metadata for music ID:", musicId, " with data: ", formData, " and labels: ", selectedLabels, " and groups: ", selectedGroups);
       if (musicId) {
+        //console.log("Data: ", formData, selectedLabels, selectedGroups, " for music ID: ", musicId);
         await saveCompleteMetadata(musicId, formData, selectedLabels);
 
         await setMusicGroups(musicId, selectedGroups);
@@ -180,6 +197,13 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
       // Always call onSave with the form data (for both new and existing items)
       onSave({
         title: formData.title,
+        composer: formData.composer || '',
+        genre: formData.genre || '',
+        key_signature: formData.key_signature || '',
+        rating: formData.rating || 0,
+        difficulty: formData.difficulty || 0,
+        time_signature: formData.time_signature || '',
+        page_count: formData.page_count || 0,
         groups: selectedGroups,
       });
     } catch (error) {

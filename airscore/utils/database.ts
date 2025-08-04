@@ -25,10 +25,15 @@ import {
  * Opens the SQLite database
  * @returns SQLite Database object
  */
-const openDatabase = async () => {
-    const database = await SQLite.openDatabaseAsync('airscore.db');
-    return database;
-}
+let _db: SQLite.SQLiteDatabase | null = null;
+
+const openDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
+    if (_db) return _db;
+
+    _db = await SQLite.openDatabaseAsync('airscore.db');
+    return _db;
+};
+
 
 /**
  * Initialises the SQLite database by creating the necessary tables.
@@ -605,6 +610,7 @@ export const saveCompleteMetadata = async (
 ): Promise<void> => {
     try {
         // Save metadata
+        console.log("Saving complete metadata for music ID:", musicId, " with data: ", metadata, " and labels: ", labelNames);
         await saveMusicMetadata(musicId, metadata);
         
         // Assign labels

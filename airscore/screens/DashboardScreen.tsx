@@ -9,9 +9,21 @@ import {MaterialIcons, Ionicons} from '@expo/vector-icons';
 import * as SolarIconSet from "solar-icon-set";
 
 import MusicItemCard from '../components/MusicItemCard';
+import MetadataForm from '../components/MetadataForm';
+
+import { UploadLocalPDF } from '../utils/fileUtils';
+import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic, saveCompleteMetadata } from "../utils/database";
+
+import * as troubleshooting from "../utils/troubleshooting";
 
 const DashboardScreen = ({}) => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    const [selectedMusicId, setSelectedMusicId] = useState<number | undefined>();
+    const [pendingPdfUri, setPendingPdfUri] = useState<string | null>(null);
+    const [prefilledTitle, setPrefilledTitle] = useState<string | undefined>();
+    const [infoboxMode, setInfoboxMode] = useState<string>("new");
+    const [showMetadataForm, setShowMetadataForm] = useState(false);
+    const [showDeleteForm, setShowDeleteForm] = useState(false);
 
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -44,6 +56,83 @@ const DashboardScreen = ({}) => {
 
     const [recentMusicItems, setRecentMusicItems] = useState<MusicItemWithAllData[]>([]);
 
+    const handleImport = async () => {
+            const uri = await UploadLocalPDF();
+        
+            if (uri) {
+            const raw_title = uri.split('/').pop() || 'Untitled';
+            const title = raw_title.replace('.pdf', '');
+        
+            setPendingPdfUri(uri);              // store the file path
+            setPrefilledTitle(title);          // prefill title for metadata form
+            setInfoboxMode("new"); 
+            setShowMetadataForm(true);         // show metadata form
+            }
+        };
+
+    const handleMetadataSave = async (formData?: MetadataFormData) => {
+        setShowMetadataForm(false);
+        setSelectedMusicId(undefined);
+        setPrefilledTitle(undefined);
+        
+        console.log("Form Data: ", formData);
+        
+        if (formData && pendingPdfUri) {
+            try {
+            const now = new Date().toISOString();
+
+            const cleanGroups = (formData.groups ?? []).filter(g => g !== "Ungrouped");
+            const groupsToInsert = cleanGroups.length > 0 ? cleanGroups : []; // <- not ['Ungrouped']
+            
+            // Create the music record first
+            const insertedId = await insertMusic(
+                formData.title,
+                pendingPdfUri,
+                groupsToInsert,
+                now
+            );
+
+            console.log("Music Record Created")
+            
+            // Now save the metadata with the new musicId
+            if (insertedId) {
+                const metadataToSave = {
+                title: formData.title,
+                composer: formData.composer || '',
+                genre: formData.genre || '',
+                key_signature: formData.key_signature || '',
+                rating: formData.rating || 0,
+                difficulty: formData.difficulty || 0,
+                time_signature: formData.time_signature || '',
+                page_count: formData.page_count || 0,
+                created_at: now,
+                updated_at: now,
+                };
+                
+                await saveCompleteMetadata(insertedId, metadataToSave, formData.labels || []);
+            }
+            
+            setPendingPdfUri(null);
+            } catch (err) {
+            console.error('Error saving music and metadata:', err);
+            
+            if (err instanceof Error) {
+                console.error("Line Info:", troubleshooting.getLineFromStack(err.stack));
+            }
+            }
+        } else {
+            setPendingPdfUri(null); // Clear if cancelled
+        }
+    };
+          
+    
+    // Handle metadata form cancel
+    const handleMetadataCancel = () => {
+        setShowMetadataForm(false);
+        setSelectedMusicId(undefined);
+        setPrefilledTitle(undefined); // Clear prefilled title
+    };
+
     return (
         <View className="flex-1 bg-white">
             {/* Quick Options Menu */}
@@ -70,7 +159,7 @@ const DashboardScreen = ({}) => {
 
                 {/* Add Score */}
                 <View className="flex-1 justify-center items-center">
-                    <TouchableOpacity className="p-2 m-1 rounded justify-center items-center w-full">
+                    <TouchableOpacity className="p-2 m-1 rounded justify-center items-center w-full" onPress={handleImport}>
                         <MaterialIcons name="add" size={48} color="dodgerblue" />
                         <Text className="text-[16px] text-dodger p-1">Add</Text>
                     </TouchableOpacity>
@@ -107,6 +196,14 @@ const DashboardScreen = ({}) => {
             </View>
 
             {/* Placeholder for future content */}
+            <MetadataForm
+                visible={showMetadataForm}
+                musicId={selectedMusicId}
+                initialTitle={prefilledTitle} // New prop
+                onSave={handleMetadataSave}
+                onCancel={handleMetadataCancel}
+                mode={infoboxMode}
+            />
         </View>
     )
 }

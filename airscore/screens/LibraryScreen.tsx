@@ -336,7 +336,7 @@ const LibraryScreen = ({}) => {
                         text='Share'
                     />
                     <MenuOption
-                        onSelect={() => console.log("Delete")}
+                        onSelect={() => handleDelete(item.id!)}
                         customStyles={{
                             optionWrapper: {padding: 10},
                             optionText: {fontSize: 14, color: '#333'}
