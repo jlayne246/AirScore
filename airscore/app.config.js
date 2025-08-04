@@ -54,5 +54,9 @@ export default ({ config }) => ({
       ...(config.plugins || []),
       ...(process.env.USE_DEV_CLIENT === 'true' ? ['expo-dev-client'] : []),
     ], */
+  plugins: [
+      ...(config.plugins || []),
+      ...(process.env.USE_DEV_CLIENT === 'true' ? ['expo-dev-client'] : []),
+  ]
 });
 

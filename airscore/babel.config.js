@@ -5,7 +5,7 @@ module.exports = function (api) {
       ["babel-preset-expo"],
     plugins: [
       // Make sure NativeWind is listed before Reanimated
-      ["nativewind/babel", { mode: "transformOnly" }],
+      "nativewind/babel",
       "react-native-reanimated/plugin",
     ],
   };
