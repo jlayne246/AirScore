@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { RefreshControl, View, ScrollView, Text, FlatList, SectionList, Animated, Button, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { RefreshControl, View, ScrollView, Text, FlatList, SectionList, Animated, Button, TouchableOpacity, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 import { Entypo } from '@expo/vector-icons';
@@ -12,8 +12,6 @@ import { UploadLocalPDF } from '../utils/fileUtils';
 import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic, saveCompleteMetadata } from "../utils/database";
 
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
-import { SearchBar } from '@rneui/themed'; // or from 'react-native-elements'
-import { ButtonGroup } from '@rneui/themed';
 
 import MetadataForm from '../components/MetadataForm'; // Adjust path as needed
 import DeleteModal from '../components/DeleteModal'; // Adjust path as needed
@@ -337,16 +335,16 @@ const LibraryScreen = ({}) => {
     return (
         <View className="flex-1 bg-white-100">
             <View className='flex-row justify-center items-center mb-4 pl-2 bg-white'>
-                <SearchBar
-                    placeholder={`Search by ${filterBy}...`}
-                    onChangeText={setSearchQuery}
-                    value={searchQuery}
-                    platform="default"
-                    containerStyle={{ backgroundColor: 'white', borderBottomColor: 'transparent', borderTopColor: 'transparent', width: '75%' }}
-                    inputContainerStyle={{ backgroundColor: '#f0f0f0' }}
-                    inputStyle={{ color: '#333' }}
-                    round
-                />
+                <View className="w-3/4 bg-white rounded-full border border-gray-300 px-4 py-2 mr-2">
+                    <TextInput
+                        placeholder={`Search by ${filterBy}...`}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        className="text-gray-800"
+                        placeholderTextColor="#888"
+                    />
+                </View>
+
 
                 <TouchableOpacity
                     className="bg-dodger px-4 py-3 rounded mr-2"

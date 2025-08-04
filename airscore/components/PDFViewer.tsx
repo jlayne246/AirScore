@@ -1,4 +1,4 @@
-import Pdf from 'react-native-pdf-expo';
+import Pdf from 'react-native-pdf';
 
 interface PDFViewerProps {
     uri: string;

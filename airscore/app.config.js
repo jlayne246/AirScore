@@ -33,6 +33,7 @@ export default ({ config }) => ({
       backgroundColor: "#ffffff",
     },
     edgeToEdgeEnabled: true,
+    package: "com.jlayne246.airscore"
   },
   updates: {
     fallbackToCacheTimeout: 0
