@@ -20,7 +20,7 @@ import DeleteModal from '../components/DeleteModal'; // Adjust path as needed
 
 import * as troubleshooting from "../utils/troubleshooting";
 
-type FilterOption = 'title' | 'composer' | 'group' | 'all';
+type FilterOption = 'title' | 'composer' | 'group' | 'any';
 
 const LibraryScreen = ({}) => {
     const [musicList, setMusicList] = useState<Array<MusicItemWithAllData>>([]);
@@ -33,7 +33,7 @@ const LibraryScreen = ({}) => {
     const [showDeleteForm, setShowDeleteForm] = useState(false);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterBy, setFilterBy] = useState<FilterOption>('all');
+    const [filterBy, setFilterBy] = useState<FilterOption>('any');
     const [showFilterButton, setShowFilterButton] = useState(false);
 
     const [showAZ, setShowAZ] = useState(false);
@@ -46,12 +46,12 @@ const LibraryScreen = ({}) => {
 
     const [refreshing, setRefreshing] = React.useState(false);
 
-    const filterOptions: FilterOption[] = ["all", "title", "composer", "group"];
+    const filterOptions: FilterOption[] = ["any", "title", "composer", "group"];
     const [selectedIndex, setSelectedIndex] = useState(0);
 
-    const filterButtons = ['All', 'Title', 'Composer', 'Group'];
+    const filterButtons = ['Any', 'Title', 'Composer', 'Group'];
     const filterMap: Record<number, FilterOption> = {
-        0: 'all',
+        0: 'any',
         1: 'title',
         2: 'composer',
         3: 'group',
@@ -225,7 +225,7 @@ const LibraryScreen = ({}) => {
         if (filterBy === 'composer') return composer.includes(query);
         if (filterBy === 'group') return groupMatch;
         
-        // Default: search across all
+        // Default: search across any
         return title.includes(query) || composer.includes(query) || groupMatch;
     });
 
@@ -264,7 +264,8 @@ const LibraryScreen = ({}) => {
 
     // Render individual music item
     const renderMusicItem = ({ item }: { item: MusicItemWithAllData }) => (
-        <View className="bg-white rounded-lg p-4 mb-3 flex-row justify-between items-center shadow-sm shadow-black/10 elevation-3">
+        <TouchableOpacity className="bg-white rounded-lg p-4 mb-3 flex-row justify-between items-center shadow-sm shadow-black/10 elevation-3"
+        onPress={() => openPDF(item.uri || '')}>
         <View className="flex-1">
             <Text className="text-base font-semibold text-gray-800 mb-1">{item.metadata?.title ?? '[No title]'}</Text>
             <Text className="text-sm text-gray-600">Composer: {item.metadata?.composer ?? '[No composer]'}</Text>
@@ -279,26 +280,6 @@ const LibraryScreen = ({}) => {
         </View>
         
         <View className="flex-row gap-2">
-            {/* Edit Metadata Button */}
-            {/* <TouchableOpacity
-            className="bg-blue-500 py-1.5 px-3 rounded"
-            onPress={() =>
-                item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)
-              }
-            >
-                <Text className="text-white text-xs font-semibold">Info</Text>
-            </TouchableOpacity> */}
-            
-            {/* Your existing buttons (play, edit, delete, etc.) */}
-            {/* <TouchableOpacity className="bg-red-500 py-1.5 px-3 rounded"
-            onPress={() => item.id && handleDelete(item.id)}>
-                <Text className="text-white text-xs font-semibold">Delete</Text>
-            </TouchableOpacity> */}
-
-            {/* <TouchableOpacity onPress={() => console.log("Menu")}>
-                <Entypo name='dots-three-vertical' size={20} color={"gray"} />
-            </TouchableOpacity> */}
-
             <Menu>
                 <MenuTrigger>
                     <Entypo name='dots-three-vertical' size={20} color={"gray"} />
@@ -346,23 +327,8 @@ const LibraryScreen = ({}) => {
                 </MenuOptions>
             </Menu>
         </View>
-        </View>
+        </TouchableOpacity>
     );
-
-    // const deleteModal = (item_id: number) => (
-    //     <View>
-    //         <Text>Are you sure you want to delete?</Text>
-    //         <TouchableOpacity
-    //         className="bg-blue-500 py-1.5 px-3 rounded"
-    //         >
-    //             <Text className="text-white text-xs font-semibold">Cancel</Text>
-    //         </TouchableOpacity>
-    //         <TouchableOpacity className="bg-red-500 py-1.5 px-3 rounded"
-    //         onPress={() => item_id && deleteMusic(item_id)}>
-    //             <Text className="text-white text-xs font-semibold">Delete</Text>
-    //         </TouchableOpacity>
-    //     </View>
-    // )
 
     //const sections = groupMusicByLetter(musicList);
     const sections = groupMusicByLetter(filteredMusic);
@@ -370,27 +336,44 @@ const LibraryScreen = ({}) => {
 
     return (
         <View className="flex-1 bg-white-100">
-            <View className='mb-4 pl-2 bg-white'>
+            <View className='flex-row justify-center items-center mb-4 pl-2 bg-white'>
                 <SearchBar
-                    placeholder="Search by title..."
+                    placeholder={`Search by ${filterBy}...`}
                     onChangeText={setSearchQuery}
                     value={searchQuery}
                     platform="default"
-                    containerStyle={{ backgroundColor: 'white', borderBottomColor: 'transparent', borderTopColor: 'transparent' }}
+                    containerStyle={{ backgroundColor: 'white', borderBottomColor: 'transparent', borderTopColor: 'transparent', width: '75%' }}
                     inputContainerStyle={{ backgroundColor: '#f0f0f0' }}
                     inputStyle={{ color: '#333' }}
                     round
                 />
 
-                <Button title={`Search by: ${filterBy}`} onPress={() => setShowFilterButton(!showFilterButton)} />
+                <TouchableOpacity
+                    className="bg-dodger px-4 py-3 rounded mr-2"
+                    onPress={() => setShowFilterButton(!showFilterButton)}
+                    >
+                    <Text className="text-white font-semibold">
+                        Search by: {filterBy.charAt(0).toUpperCase() + filterBy.slice(1)}
+                    </Text>
+                    </TouchableOpacity>
 
                 {showFilterButton && (
-                    <ButtonGroup
-                        buttons={filterButtons}
-                        selectedIndex={filterButtons.findIndex(b => b.toLowerCase() === filterBy)}
-                        onPress={(index) => setFilterBy(filterMap[index])}
-                        containerStyle={{ margin: 10 }}
-                    />
+                    <View className="absolute top-16 right-4 bg-white rounded shadow-lg z-50">
+                        {filterButtons.map((btn, idx) => (
+                        <TouchableOpacity
+                            key={btn}
+                            className={`px-4 py-2 ${filterBy === filterMap[idx] ? 'bg-blue-100' : ''}`}
+                            onPress={() => {
+                            setFilterBy(filterMap[idx]);
+                            setShowFilterButton(false);
+                            }}
+                        >
+                            <Text className={`text-base ${filterBy === filterMap[idx] ? 'text-blue-600 font-bold' : 'text-gray-800'}`}>
+                            {btn}
+                            </Text>
+                        </TouchableOpacity>
+                        ))}
+                    </View>
                 )}
             </View>
 
@@ -489,15 +472,6 @@ const LibraryScreen = ({}) => {
                 onCancel={handleMetadataCancel}
                 mode={infoboxMode}
             />
-
-            {/* {loading && (
-                <View className="absolute inset-0 bg-black/60 flex justify-center items-center z-50">
-                    <View className="bg-gray-800 px-6 py-4 rounded-xl items-center w-64">
-                        <ActivityIndicator size="large" color="#ffffff" />
-                        <Text className="mt-3 text-white text-base text-center">Importing PDF...</Text>
-                    </View>
-                </View>
-            )} */}
 
             {/* Delete Modal */}
             {showDeleteForm && (

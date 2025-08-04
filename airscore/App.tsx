@@ -37,7 +37,7 @@ export default function App() {
               <Stack.Navigator initialRouteName="Dashboard">
                 <Stack.Screen name="Dashboard" component={DashboardScreen} />
                 <Stack.Screen name="Library" component={LibraryScreen} />
-                <Stack.Screen name="Reader" component={ReaderScreen} />
+                <Stack.Screen name="Reader" component={ReaderScreen} initialParams={{ uri: '' }} />
               </Stack.Navigator>
             </NavigationContainer>
           </MenuProvider>

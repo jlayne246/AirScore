@@ -1,7 +1,40 @@
-const ReaderScreen = ({}) => (<>
-    {/* Taskbar */}
+import React from 'react';
+import { View, Text } from 'react-native';
 
-    {/* PDF Viewer */}
-</>);
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+import PDFViewer from '../components/PDFViewer';
+
+import { RouteProp } from '@react-navigation/native';
+import { RootStackParamList } from '../types';
+
+type ReaderScreenProps = {
+    route: RouteProp<RootStackParamList, 'Reader'>;
+    navigation: any;
+};
+
+const ReaderScreen = ({ route }: ReaderScreenProps) => {
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    const { uri } = route.params;
+
+    React.useLayoutEffect(() => {
+        navigation.setOptions({
+            headerTitle: 'PDF Reader',
+            headerStyle: {
+                backgroundColor: 'white',
+            },
+            headerTintColor: 'black',
+        });
+    }, [navigation]);
+
+    return (
+        <View>
+            <View style={{ flex: 1, backgroundColor: 'black' }}>
+                <PDFViewer uri={uri} />
+            </View>
+        </View>
+    );
+}
 
 export default ReaderScreen;
