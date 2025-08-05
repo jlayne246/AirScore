@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, SafeAreaView } from 'react-native';
 
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -20,21 +20,19 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
 
     React.useLayoutEffect(() => {
         navigation.setOptions({
-            headerTitle: 'PDF Reader',
-            headerStyle: {
-                backgroundColor: 'white',
-            },
-            headerTintColor: 'black',
+        headerTitle: 'Sheet Music Viewer',
+        headerStyle: {
+            backgroundColor: 'white',
+        },
+        headerTintColor: 'black',
         });
     }, [navigation]);
 
     return (
-        <View>
-            <View style={{ flex: 1, backgroundColor: 'black' }}>
-                <PDFViewer uri={uri} />
-            </View>
-        </View>
+        <SafeAreaView style={{ flex: 1 }}>
+        <PDFViewer uri={uri} />
+        </SafeAreaView>
     );
-}
+};
 
 export default ReaderScreen;

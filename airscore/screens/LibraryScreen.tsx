@@ -334,8 +334,8 @@ const LibraryScreen = ({}) => {
 
     return (
         <View className="flex-1 bg-white-100">
-            <View className='flex-row justify-center items-center mb-4 pl-2 bg-white'>
-                <View className="w-3/4 bg-white rounded-full border border-gray-300 px-4 py-2 mr-2">
+            <View className='flex-row justify-between items-center mb-4 pl-2 bg-white'>
+                <View className="w-8/12 h-12 bg-white rounded-lg border border-gray-300 px-4 py-1 m-2">
                     <TextInput
                         placeholder={`Search by ${filterBy}...`}
                         value={searchQuery}
@@ -347,7 +347,7 @@ const LibraryScreen = ({}) => {
 
 
                 <TouchableOpacity
-                    className="bg-dodger px-4 py-3 rounded mr-2"
+                    className="bg-dodger w-48 h-12 px-4 py-3 rounded mr-4"
                     onPress={() => setShowFilterButton(!showFilterButton)}
                     >
                     <Text className="text-white font-semibold">
