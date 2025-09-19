@@ -127,8 +127,6 @@ const LibraryScreen = ({}) => {
                 composer: formData.composer || '',
                 genre: formData.genre || '',
                 key_signature: formData.key_signature || '',
-                rating: formData.rating || 0,
-                difficulty: formData.difficulty || 0,
                 time_signature: formData.time_signature || '',
                 page_count: formData.page_count || 0,
                 created_at: now,

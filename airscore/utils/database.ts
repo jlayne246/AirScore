@@ -72,8 +72,6 @@ export const initDB = async () => {
                     composer TEXT,
                     genre TEXT,
                     key_signature TEXT,
-                    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
-                    difficulty INTEGER CHECK (difficulty >= 1 AND difficulty <= 10),
                     time_signature TEXT,
                     page_count INTEGER,
                     created_at TEXT DEFAULT (datetime('now')),
@@ -497,16 +495,14 @@ export const saveMusicMetadata = async (
         await db.runAsync(`
             INSERT OR REPLACE INTO music_metadata (
                 id, title, composer, genre, key_signature, 
-                rating, difficulty, time_signature, page_count, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                time_signature, page_count, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             musicId,
             metadata.title,
             metadata.composer || null,
             metadata.genre || null,
             metadata.key_signature || null,
-            metadata.rating || null,
-            metadata.difficulty || null,
             metadata.time_signature || null,
             metadata.page_count || null,
             metadata.created_at || new Date().toISOString()

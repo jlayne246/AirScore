@@ -47,8 +47,6 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     composer: '',
     genre: '',
     key_signature: '',
-    rating: 0,
-    difficulty: 0,
     time_signature: '',
     page_count: 0,
     created_at: new Date().toISOString(),
@@ -67,10 +65,6 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   const [availableGroups, setAvailableGroups] = useState<string[]>([]);
   const [newGroupText, setNewGroupText] = useState('');
   const [showGroupModal, setShowGroupModal] = useState(false);
-
-  // Rating and difficulty arrays for picker-style selection
-  const ratings = [1, 2, 3, 4, 5];
-  const difficulties = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
   // Common key signatures
   const keySignatures = [
@@ -157,8 +151,6 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           composer: '',
           genre: '',
           key_signature: '',
-          rating: 0,
-          difficulty: 0,
           time_signature: '',
           page_count: 0,
           created_at: new Date().toISOString(),
@@ -200,8 +192,6 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
         composer: formData.composer || '',
         genre: formData.genre || '',
         key_signature: formData.key_signature || '',
-        rating: formData.rating || 0,
-        difficulty: formData.difficulty || 0,
         time_signature: formData.time_signature || '',
         page_count: formData.page_count || 0,
         groups: selectedGroups,
@@ -273,47 +263,47 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     );
   };
 
-  const renderRatingSelector = () => (
-    <View className="my-3">
-      <Text className="text-base font-semibold text-gray-800 mb-2">Rating (1-5 stars)</Text>
-      <View className="flex-row flex-wrap gap-2">
-        {ratings.map(rating => (
-          <TouchableOpacity
-            key={rating}
-            className={`bg-white border border-gray-300 rounded-lg py-2 px-3 ${formData.rating === rating ? 'bg-blue-500 border-blue-500' : ''
-              }`}
-            onPress={() => setFormData(prev => ({ ...prev, rating }))}
-          >
-            <Text className={`text-base ${formData.rating === rating ? 'text-white' : 'text-gray-800'
-              }`}>
-              {'★'.repeat(rating)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
+  // const renderRatingSelector = () => (
+  //   <View className="my-3">
+  //     <Text className="text-base font-semibold text-gray-800 mb-2">Rating (1-5 stars)</Text>
+  //     <View className="flex-row flex-wrap gap-2">
+  //       {ratings.map(rating => (
+  //         <TouchableOpacity
+  //           key={rating}
+  //           className={`bg-white border border-gray-300 rounded-lg py-2 px-3 ${formData.rating === rating ? 'bg-blue-500 border-blue-500' : ''
+  //             }`}
+  //           onPress={() => setFormData(prev => ({ ...prev, rating }))}
+  //         >
+  //           <Text className={`text-base ${formData.rating === rating ? 'text-white' : 'text-gray-800'
+  //             }`}>
+  //             {'★'.repeat(rating)}
+  //           </Text>
+  //         </TouchableOpacity>
+  //       ))}
+  //     </View>
+  //   </View>
+  // );
 
-  const renderDifficultySelector = () => (
-    <View className="my-3">
-      <Text className="text-base font-semibold text-gray-800 mb-2">Difficulty (1-10)</Text>
-      <View className="flex-row flex-wrap gap-2">
-        {difficulties.map(difficulty => (
-          <TouchableOpacity
-            key={difficulty}
-            className={`bg-white border border-gray-300 rounded-lg py-2 px-3 min-w-9 items-center ${formData.difficulty === difficulty ? 'bg-orange-500 border-orange-500' : ''
-              }`}
-            onPress={() => setFormData(prev => ({ ...prev, difficulty }))}
-          >
-            <Text className={`text-base font-semibold ${formData.difficulty === difficulty ? 'text-white' : 'text-gray-800'
-              }`}>
-              {difficulty}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
+  // const renderDifficultySelector = () => (
+  //   <View className="my-3">
+  //     <Text className="text-base font-semibold text-gray-800 mb-2">Difficulty (1-10)</Text>
+  //     <View className="flex-row flex-wrap gap-2">
+  //       {difficulties.map(difficulty => (
+  //         <TouchableOpacity
+  //           key={difficulty}
+  //           className={`bg-white border border-gray-300 rounded-lg py-2 px-3 min-w-9 items-center ${formData.difficulty === difficulty ? 'bg-orange-500 border-orange-500' : ''
+  //             }`}
+  //           onPress={() => setFormData(prev => ({ ...prev, difficulty }))}
+  //         >
+  //           <Text className={`text-base font-semibold ${formData.difficulty === difficulty ? 'text-white' : 'text-gray-800'
+  //             }`}>
+  //             {difficulty}
+  //           </Text>
+  //         </TouchableOpacity>
+  //       ))}
+  //     </View>
+  //   </View>
+  // );
 
   const renderQuickSelectButtons = (options: string[], field: keyof typeof formData) => {
     const [showAllOptions, setShowAllOptions] = useState(false);
@@ -454,10 +444,10 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           </View>
 
           {/* Rating */}
-          {renderRatingSelector()}
+          {/* {renderRatingSelector()} */}
 
           {/* Difficulty */}
-          {renderDifficultySelector()}
+          {/* {renderDifficultySelector()} */}
 
           {/* Groups */}
           <View className="my-3">

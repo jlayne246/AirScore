@@ -19,8 +19,6 @@ export interface MusicMetadata {
   composer: string;
   genre: string;
   key_signature: string;
-  rating: number; // 1-5
-  difficulty: number; // 1-10
   time_signature: string;
   page_count: number;
   created_at: string;
@@ -58,8 +56,6 @@ export interface MetadataFormData {
   composer?: string;
   genre?: string;
   key_signature?: string;
-  rating?: number;
-  difficulty?: number;
   time_signature?: string;
   page_count?: number;
   labels?: string[];
