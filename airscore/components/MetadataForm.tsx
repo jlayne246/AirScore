@@ -19,7 +19,8 @@ import {
   getAllGroups,
   setMusicGroups,
   getGroupsForMusic,
-  addMusicToGroup
+  addMusicToGroup,
+  metadataExists
 } from '../utils/database';
 
 interface MetadataFormProps {
@@ -167,39 +168,76 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   };
 
   const handleSave = async () => {
-    if (!formData.title.trim()) {
-      Alert.alert('Error', 'Title is required');
+    const title = formData.title.trim();
+
+    if (!title) {
+      Alert.alert("Error", "Title is required");
       return;
     }
 
+    const cleanedFormData = {
+      ...formData,
+      title,
+      composer: formData.composer?.trim() || "",
+      genre: formData.genre?.trim() || "",
+      key_signature: formData.key_signature?.trim() || "",
+      time_signature: formData.time_signature?.trim() || "",
+      page_count: Number(formData.page_count) || 0,
+      updated_at: new Date().toISOString(),
+    };
+
+    // ADD MODE: do not save here; let parent create music first.
+    if (mode === "add" || !musicId) {
+      onSave({
+        title: cleanedFormData.title,
+        composer: cleanedFormData.composer,
+        genre: cleanedFormData.genre,
+        key_signature: cleanedFormData.key_signature,
+        time_signature: cleanedFormData.time_signature,
+        page_count: cleanedFormData.page_count,
+        groups: selectedGroups,
+        labels: selectedLabels,
+      });
+
+      return;
+    }
+
+    // EDIT MODE: music already exists, so save directly.
     setIsLoading(true);
+
     try {
-      // For existing items with musicId, save to database
-      //console.log("Saving metadata for music ID:", musicId, " with data: ", formData, " and labels: ", selectedLabels, " and groups: ", selectedGroups);
-      if (musicId) {
-        //console.log("Data: ", formData, selectedLabels, selectedGroups, " for music ID: ", musicId);
-        await saveCompleteMetadata(musicId, formData, selectedLabels);
+      const duplicate = await metadataExists(
+        cleanedFormData.title,
+        cleanedFormData.composer,
+        musicId
+      );
 
-        await setMusicGroups(musicId, selectedGroups);
-
-        Alert.alert('Success', 'Metadata saved successfully');
-        console.log('Saving Metadata:', { musicId, formData, selectedLabels });
+      if (duplicate) {
+        Alert.alert(
+          "Duplicate music",
+          "A piece with this title and composer already exists."
+        );
+        return;
       }
 
-      // Always call onSave with the form data (for both new and existing items)
+      await saveCompleteMetadata(musicId, cleanedFormData, selectedLabels);
+      await setMusicGroups(musicId, selectedGroups);
+
+      Alert.alert("Success", "Metadata saved successfully");
+
       onSave({
-        title: formData.title,
-        composer: formData.composer || '',
-        genre: formData.genre || '',
-        key_signature: formData.key_signature || '',
-        time_signature: formData.time_signature || '',
-        page_count: formData.page_count || 0,
+        title: cleanedFormData.title,
+        composer: cleanedFormData.composer,
+        genre: cleanedFormData.genre,
+        key_signature: cleanedFormData.key_signature,
+        time_signature: cleanedFormData.time_signature,
+        page_count: cleanedFormData.page_count,
         groups: selectedGroups,
+        labels: selectedLabels,
       });
     } catch (error) {
-      console.error('Failed to save metadata:', error);
-      Alert.alert('Error', 'Failed to save metadata');
-      onSave(undefined);
+      console.error("Failed to save metadata:", error);
+      Alert.alert("Error", "Failed to save metadata");
     } finally {
       setIsLoading(false);
     }

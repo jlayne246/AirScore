@@ -26,6 +26,7 @@ import {
  * @returns SQLite Database object
  */
 let _db: SQLite.SQLiteDatabase | null = null;
+let _initPromise: Promise<void> | null = null;
 
 const openDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
     if (_db) return _db;
@@ -38,68 +39,126 @@ const openDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
 /**
  * Initialises the SQLite database by creating the necessary tables.
  */
-export const initDB = async () => {
+export const initDB = async (): Promise<void> => {
+  if (_initPromise) return _initPromise;
+
+  _initPromise = (async () => {
     const db = await openDatabase();
 
-    // Create tables with proper relationships using execAsync to execute multiple SQL statements at once as a transaction
     try {
-        await db.execAsync(`
-                -- Original tables
-                CREATE TABLE IF NOT EXISTS music (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    uri TEXT NOT NULL,
-                    created_at TEXT DEFAULT (datetime('now'))
-                );
+      console.log("DB init: enabling foreign keys");
+      await db.execAsync(`PRAGMA foreign_keys = ON;`);
 
-                CREATE TABLE IF NOT EXISTS groups (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL UNIQUE
-                );
+      console.log("DB init: creating music table");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS music (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          uri TEXT NOT NULL,
+          created_at TEXT DEFAULT (datetime('now')),
+          last_opened_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
 
-                CREATE TABLE IF NOT EXISTS music_groups (
-                    music_id INTEGER,
-                    group_id INTEGER,
-                    PRIMARY KEY (music_id, group_id),
-                    FOREIGN KEY (music_id) REFERENCES music (id) ON DELETE CASCADE,
-                    FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE CASCADE
-                );
+      console.log("DB init: creating groups table");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS groups (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE
+        );
+      `);
 
-                -- New metadata tables
-                CREATE TABLE IF NOT EXISTS music_metadata (
-                    id INTEGER PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    composer TEXT,
-                    genre TEXT,
-                    key_signature TEXT,
-                    time_signature TEXT,
-                    page_count INTEGER,
-                    created_at TEXT DEFAULT (datetime('now')),
-                    updated_at TEXT DEFAULT (datetime('now')),
-                    FOREIGN KEY (id) REFERENCES music (id) ON DELETE CASCADE
-                );
+      console.log("DB init: creating music_groups table");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS music_groups (
+          music_id INTEGER,
+          group_id INTEGER,
+          PRIMARY KEY (music_id, group_id),
+          FOREIGN KEY (music_id) REFERENCES music (id) ON DELETE CASCADE,
+          FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE CASCADE
+        );
+      `);
 
-                CREATE TABLE IF NOT EXISTS labels (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL UNIQUE,
-                    colour TEXT
-                );
+      console.log("DB init: creating music_metadata table");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS music_metadata (
+          id INTEGER PRIMARY KEY,
+          title TEXT NOT NULL,
+          composer TEXT,
+          genre TEXT,
+          key_signature TEXT,
+          time_signature TEXT,
+          page_count INTEGER,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (id) REFERENCES music (id) ON DELETE CASCADE
+        );
+      `);
 
-                CREATE TABLE IF NOT EXISTS music_labels (
-                    music_id INTEGER,
-                    label_id INTEGER,
-                    PRIMARY KEY (music_id, label_id),
-                    FOREIGN KEY (music_id) REFERENCES music (id) ON DELETE CASCADE,
-                    FOREIGN KEY (label_id) REFERENCES labels (id) ON DELETE CASCADE
-                );
-            `);
+      console.log("DB init: creating labels table");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS labels (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          colour TEXT
+        );
+      `);
 
-        console.log("Database with metadata initialized");
+      console.log("DB init: creating music_labels table");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS music_labels (
+          music_id INTEGER,
+          label_id INTEGER,
+          PRIMARY KEY (music_id, label_id),
+          FOREIGN KEY (music_id) REFERENCES music (id) ON DELETE CASCADE,
+          FOREIGN KEY (label_id) REFERENCES labels (id) ON DELETE CASCADE
+        );
+      `);
+
+      console.log("DB init: creating duplicate metadata index");
+      await db.execAsync(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_music_metadata_title_composer
+        ON music_metadata (title, composer);
+      `);
+
+      console.log("Database initialized");
     } catch (error) {
-        console.error("Failed to initialize database with metadata:", error);
-        throw error;
+      _initPromise = null;
+      console.error("Database startup failed:", error);
+      throw error;
     }
-}
+  })();
+
+  return _initPromise;
+};
+
+export const getRecentlyOpenedMusic = async (
+  limit: number = 10
+): Promise<MusicItemWithAllData[]> => {
+  const allMusic = await getMusicWithAllData();
+
+  return allMusic
+    .filter(item => !!item.last_opened_at)
+    .sort(
+      (a, b) =>
+        new Date(b.last_opened_at!).getTime() -
+        new Date(a.last_opened_at!).getTime()
+    )
+    .slice(0, limit);
+};
+
+export const markMusicAsOpened = async (musicId: number): Promise<void> => {
+  const db = await openDatabase();
+
+  await db.runAsync(
+    `
+    UPDATE music
+    SET last_opened_at = ?
+    WHERE id = ?
+    `,
+    [new Date().toISOString(), musicId]
+  );
+};
 
 /**
  * Inserts a new music item into the database
@@ -165,6 +224,60 @@ export const insertMusic = async (
         await db.execAsync('ROLLBACK');
         throw error;
     }
+};
+
+export const metadataExists = async (
+  title: string,
+  composer?: string,
+  excludeMusicId?: number
+): Promise<boolean> => {
+  const db = await openDatabase();
+
+  const normalisedTitle = title.trim().toLowerCase();
+  const normalisedComposer = (composer ?? "").trim().toLowerCase();
+
+  const existing = await db.getFirstAsync<{ id: number }>(
+    `
+    SELECT id
+    FROM music_metadata
+    WHERE lower(trim(title)) = ?
+      AND lower(trim(coalesce(composer, ''))) = ?
+      AND (? IS NULL OR id != ?)
+    LIMIT 1
+    `,
+    [
+      normalisedTitle,
+      normalisedComposer,
+      excludeMusicId ?? null,
+      excludeMusicId ?? null,
+    ]
+  );
+
+  return !!existing;
+};
+
+export const musicExistsByUri = async (
+  uri: string,
+  excludeMusicId?: number
+): Promise<boolean> => {
+  const db = await openDatabase();
+
+  const existing = await db.getFirstAsync<{ id: number }>(
+    `
+    SELECT id
+    FROM music
+    WHERE uri = ?
+      AND (? IS NULL OR id != ?)
+    LIMIT 1
+    `,
+    [
+      uri,
+      excludeMusicId ?? null,
+      excludeMusicId ?? null
+    ]
+  );
+
+  return !!existing;
 };
 
 export const updateMusic = async (
@@ -429,32 +542,42 @@ export const setMusicGroups = async (musicId: number, groupNames: string[]) => {
  * @param tableNames - Array of table names to drop
  * @returns Promise that resolves when all tables are dropped
  */
-export const dropTables = async (tableNames: string[] = ['music_groups', 'music', 'groups', 'music_metadata', 'labels']) => {
-    const db = await openDatabase();
-    
-    try {
-      // Begin transaction to ensure atomicity
-      await db.execAsync('BEGIN TRANSACTION');
-      
-      // Drop tables in the correct order to respect foreign key constraints
-      for (const tableName of tableNames) {
-        await db.execAsync(`DROP TABLE IF EXISTS ${tableName}`);
-        console.log(`Table ${tableName} dropped successfully`);
-      }
-      
-      // Commit the transaction
-      await db.execAsync('COMMIT');
-      console.log('All specified tables dropped successfully');
-      
-      // Option to reinitialize the database after dropping
-      return true;
-    } catch (error) {
-      // Rollback on error
-      await db.execAsync('ROLLBACK');
-      console.error('Error dropping tables:', error);
-      throw error;
+export const dropTables = async (
+  tableNames: string[] = [
+    "music_labels",
+    "music_groups",
+    "music_metadata",
+    "labels",
+    "groups",
+    "music"
+  ]
+) => {
+  const db = await openDatabase();
+
+  try {
+    await db.execAsync("PRAGMA foreign_keys = OFF;");
+    await db.execAsync("BEGIN TRANSACTION;");
+
+    for (const tableName of tableNames) {
+      await db.execAsync(`DROP TABLE IF EXISTS ${tableName};`);
+      console.log(`Table ${tableName} dropped successfully`);
     }
-  };
+
+    await db.execAsync(`
+        DROP INDEX IF EXISTS idx_music_metadata_title_composer;
+    `);
+
+    await db.execAsync("COMMIT;");
+    await db.execAsync("PRAGMA foreign_keys = ON;");
+
+    return true;
+  } catch (error) {
+    await db.execAsync("ROLLBACK;");
+    await db.execAsync("PRAGMA foreign_keys = ON;");
+    console.error("Error dropping tables:", error);
+    throw error;
+  }
+};
   
   /**
    * Reset the database by dropping all tables and reinitializing

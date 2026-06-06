@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, SafeAreaView } from 'react-native';
 
 import { useNavigation } from "@react-navigation/native";
@@ -8,6 +8,7 @@ import PDFViewer from '../components/PDFViewer';
 
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
+import { markMusicAsOpened } from '../utils/database';
 
 type ReaderScreenProps = {
     route: RouteProp<RootStackParamList, 'Reader'>;
@@ -16,7 +17,7 @@ type ReaderScreenProps = {
 
 const ReaderScreen = ({ route }: ReaderScreenProps) => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { uri } = route.params;
+    const { uri, musicId } = route.params as { uri: string; musicId?: number };
 
     React.useLayoutEffect(() => {
         navigation.setOptions({
@@ -27,6 +28,12 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
         headerTintColor: 'black',
         });
     }, [navigation]);
+
+    useEffect(() => {
+        if (musicId) {
+            markMusicAsOpened(musicId);
+        }
+    }, [musicId]);
 
     return (
         <SafeAreaView style={{ flex: 1 }}>

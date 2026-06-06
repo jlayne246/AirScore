@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 // Imports the navigation capabilitiies
 import { NavigationContainer } from "@react-navigation/native";
@@ -18,12 +18,37 @@ import TestComponent from "./components/TestTailwind";
 import { MenuProvider } from 'react-native-popup-menu';
 
 import { RootStackParamList } from './types';
+import { useEffect, useState } from 'react';
+import { initDB } from './utils/database';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
     // The __DEV__ constant is true when in development mode
     const showDevTools = __DEV__;
+
+    const [dbReady, setDbReady] = useState(false);
+
+    useEffect(() => {
+      const start = async () => {
+        try {
+          await initDB();
+          setDbReady(true);
+        } catch (error) {
+          console.error("Database startup failed:", error);
+        }
+      };
+
+      start();
+    }, []);
+
+    if (!dbReady) {
+      return (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator />
+        </View>
+      );
+    }
 
     console.log(showDevTools)
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
-import { RefreshControl, View, ScrollView, Text, FlatList, SectionList, Animated, Button, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { RefreshControl, View, ScrollView, Text, FlatList, SectionList, Animated, Button, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, MusicItem, MusicItemWithAllData, MetadataFormData, MusicMetadata } from '../types';
 
@@ -12,7 +12,7 @@ import MusicItemCard from '../components/MusicItemCard';
 import MetadataForm from '../components/MetadataForm';
 
 import { UploadLocalPDF } from '../utils/fileUtils';
-import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic, saveCompleteMetadata } from "../utils/database";
+import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic, saveCompleteMetadata, metadataExists, musicExistsByUri, getRecentlyOpenedMusic } from "../utils/database";
 
 import * as troubleshooting from "../utils/troubleshooting";
 
@@ -56,6 +56,25 @@ const DashboardScreen = ({}) => {
 
     const [recentMusicItems, setRecentMusicItems] = useState<MusicItemWithAllData[]>([]);
 
+    const loadRecentItems = async () => {
+        try {
+            const recent = await getRecentlyOpenedMusic(10);
+            setRecentMusicItems(recent);
+        } catch (error) {
+            console.error("Failed to load recent items:", error);
+        }
+    };
+
+    useEffect(() => {
+        loadRecentItems();
+    }, []);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            loadRecentItems();
+        }, [])
+    );
+
     const handleImport = async () => {
             const uri = await UploadLocalPDF();
         
@@ -74,54 +93,81 @@ const DashboardScreen = ({}) => {
         setShowMetadataForm(false);
         setSelectedMusicId(undefined);
         setPrefilledTitle(undefined);
-        
+
         console.log("Form Data: ", formData);
-        
+
         if (formData && pendingPdfUri) {
             try {
-            const now = new Date().toISOString();
+                const now = new Date().toISOString();
 
-            const cleanGroups = (formData.groups ?? []).filter(g => g !== "Ungrouped");
-            const groupsToInsert = cleanGroups.length > 0 ? cleanGroups : []; // <- not ['Ungrouped']
-            
-            // Create the music record first
-            const insertedId = await insertMusic(
-                formData.title,
-                pendingPdfUri,
-                groupsToInsert,
-                now
-            );
+                const duplicate = await metadataExists(
+                    formData.title,
+                    formData.composer || ""
+                );
 
-            console.log("Music Record Created")
-            
-            // Now save the metadata with the new musicId
-            if (insertedId) {
+                if (duplicate) {
+                    Alert.alert(
+                    "Duplicate music",
+                    "A piece with this title and composer already exists."
+                    );
+
+                    setPendingPdfUri(null);
+                    return;
+                }
+
+                const duplicateUri = await musicExistsByUri(pendingPdfUri);
+
+                if (duplicateUri) {
+                Alert.alert(
+                    "Duplicate PDF",
+                    "This PDF has already been imported into your library."
+                );
+
+                setPendingPdfUri(null);
+                return;
+                }
+
+                const cleanGroups = (formData.groups ?? []).filter(
+                    g => g !== "Ungrouped"
+                );
+
+                const insertedId = await insertMusic(
+                    formData.title,
+                    pendingPdfUri,
+                    cleanGroups,
+                    now
+                );
+
+                console.log("Music Record Created");
+
                 const metadataToSave = {
-                title: formData.title,
-                composer: formData.composer || '',
-                genre: formData.genre || '',
-                key_signature: formData.key_signature || '',
-                rating: formData.rating || 0,
-                difficulty: formData.difficulty || 0,
-                time_signature: formData.time_signature || '',
-                page_count: formData.page_count || 0,
-                created_at: now,
-                updated_at: now,
+                    title: formData.title,
+                    composer: formData.composer || "",
+                    genre: formData.genre || "",
+                    key_signature: formData.key_signature || "",
+                    time_signature: formData.time_signature || "",
+                    page_count: formData.page_count || 0,
+                    created_at: now,
+                    updated_at: now,
                 };
-                
-                await saveCompleteMetadata(insertedId, metadataToSave, formData.labels || []);
-            }
-            
-            setPendingPdfUri(null);
-            } catch (err) {
-            console.error('Error saving music and metadata:', err);
-            
-            if (err instanceof Error) {
-                console.error("Line Info:", troubleshooting.getLineFromStack(err.stack));
-            }
+
+                await saveCompleteMetadata(
+                    insertedId,
+                    metadataToSave,
+                    formData.labels || []
+                );
+
+                navigation.navigate("Reader", { uri: pendingPdfUri, musicId: insertedId } as any);
+                setPendingPdfUri(null);
+                } catch (err) {
+                console.error("Error saving music and metadata:", err);
+
+                if (err instanceof Error) {
+                    console.error("Line Info:", troubleshooting.getLineFromStack(err.stack));
+                }
             }
         } else {
-            setPendingPdfUri(null); // Clear if cancelled
+            setPendingPdfUri(null);
         }
     };
           

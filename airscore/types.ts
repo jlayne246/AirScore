@@ -10,6 +10,7 @@ export interface MusicItem {
   title: string;
   uri: string;
   created_at: string;
+  last_opened_at?: string;
 }
 
 // Define types for music item metadata
