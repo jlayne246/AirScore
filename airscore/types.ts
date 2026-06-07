@@ -1,6 +1,6 @@
 export type RootStackParamList = {
   Library: undefined;
-  Reader: { uri: string };
+  Reader: { uri: string, musicId?: number };
   Dashboard: undefined;
 };
 
@@ -35,16 +35,16 @@ export interface Label {
 
 export interface MusicMetadataWithLabels extends MusicMetadata {
   labels: string[];
-  // groups: string[];
+  // setlists: string[];
 }
 
 export type MusicItemWithAllData = MusicItem & {
-  groups: string[];
+  setlists: string[];
   metadata?: MusicMetadataWithLabels | null;
 };
 
-// Define types for the groups
-export interface Group {
+// Define types for the setlists
+export interface Setlist {
     id?: number;
     name: string;
 }
@@ -52,7 +52,7 @@ export interface Group {
 // Updated interface to include all metadata
 export interface MetadataFormData {
   title: string;
-  groups: string[];
+  setlists: string[];
   // Add all the metadata fields
   composer?: string;
   genre?: string;

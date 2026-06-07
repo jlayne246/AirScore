@@ -19,11 +19,14 @@ const MusicItemCard: React.FC<Props> = ({ item, onEditMetadata, onDelete, onShar
             <Text className="text-base font-semibold text-gray-800 mb-1">
             {item.metadata?.title ?? '[No title]'}
             </Text>
-            <Text className="text-sm text-gray-600">
-            Groups: {item.groups.length > 0 ? item.groups.join(', ') : 'None'}
+            <Text className="text-sm text-gray-600 mb-1">
+            {item.metadata?.composer ?? '[No composer]'}
+            </Text>
+            <Text className="text-sm text-gray-500 font-light ">
+            Setlist: {item.setlists.length > 0 ? item.setlists.join(', ') : 'None'}
             </Text>
             {item.metadata?.labels && item.metadata.labels.length > 0 && (
-            <Text className="text-sm text-gray-500 mt-1">
+            <Text className="text-sm font-light  text-gray-500 mt-1">
                 Labels: {item.metadata.labels.join(', ')}
             </Text>
             )}

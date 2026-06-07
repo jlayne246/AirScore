@@ -19,13 +19,17 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { uri, musicId } = route.params as { uri: string; musicId?: number };
 
+    if (!uri) {
+        return <Text>No PDF selected.</Text>;
+    }
+
     React.useLayoutEffect(() => {
         navigation.setOptions({
-        headerTitle: 'Sheet Music Viewer',
-        headerStyle: {
-            backgroundColor: 'white',
-        },
-        headerTintColor: 'black',
+            headerTitle: 'Sheet Music Viewer',
+            headerStyle: {
+                backgroundColor: 'white',
+            },
+            headerTintColor: 'black',
         });
     }, [navigation]);
 

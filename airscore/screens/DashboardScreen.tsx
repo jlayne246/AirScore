@@ -12,7 +12,7 @@ import MusicItemCard from '../components/MusicItemCard';
 import MetadataForm from '../components/MetadataForm';
 
 import { UploadLocalPDF } from '../utils/fileUtils';
-import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic, saveCompleteMetadata, metadataExists, musicExistsByUri, getRecentlyOpenedMusic } from "../utils/database";
+import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleSetlists, deleteMusic, saveCompleteMetadata, metadataExists, musicExistsByUri, getRecentlyOpenedMusic } from "../utils/database";
 
 import * as troubleshooting from "../utils/troubleshooting";
 
@@ -89,6 +89,21 @@ const DashboardScreen = ({}) => {
             }
         };
 
+    const [openingId, setOpeningId] = useState<number | null>(null);
+
+    const openPDF = (item: MusicItemWithAllData) => {
+        if (!item.uri || openingId === item.id) return;
+
+        setOpeningId(item.id ?? null);
+
+        navigation.navigate("Reader", {
+            uri: item.uri,
+            musicId: item.id,
+        });
+
+        setTimeout(() => setOpeningId(null), 1000);
+    };
+
     const handleMetadataSave = async (formData?: MetadataFormData) => {
         setShowMetadataForm(false);
         setSelectedMusicId(undefined);
@@ -127,14 +142,14 @@ const DashboardScreen = ({}) => {
                 return;
                 }
 
-                const cleanGroups = (formData.groups ?? []).filter(
+                const cleansetlists = (formData.setlists ?? []).filter(
                     g => g !== "Ungrouped"
                 );
 
                 const insertedId = await insertMusic(
                     formData.title,
                     pendingPdfUri,
-                    cleanGroups,
+                    cleansetlists,
                     now
                 );
 
@@ -219,12 +234,14 @@ const DashboardScreen = ({}) => {
                     <FlatList
                         data={recentMusicItems}
                         renderItem={({ item }) => (
-                            <MusicItemCard
-                                item={item as MusicItemWithAllData}
-                                onEditMetadata={(id, title) => console.log(`Edit ${id} with title ${title}`)}
-                                onDelete={(id) => console.log(`Delete ${id}`)}
-                                onShare={(id) => console.log(`Share ${id}`)}
-                            />
+                            <TouchableOpacity onPress={() => openPDF(item)}>
+                                <MusicItemCard
+                                    item={item as MusicItemWithAllData}
+                                    onEditMetadata={(id, title) => console.log(`Edit ${id} with title ${title}`)}
+                                    onDelete={(id) => console.log(`Delete ${id}`)}
+                                    onShare={(id) => console.log(`Share ${id}`)}
+                                />
+                            </TouchableOpacity>
                     )}
                     keyExtractor={(item, index) => item.id?.toString() || index.toString()}
                     contentContainerStyle={{ padding: 10 }}

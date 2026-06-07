@@ -16,10 +16,10 @@ import {
   getMusicWithMetadata,
   getAllLabels,
   createOrGetLabel,
-  getAllGroups,
-  setMusicGroups,
-  getGroupsForMusic,
-  addMusicToGroup,
+  getAllSetlists,
+  setMusicSetlists,
+  getSetlistsForMusic,
+  addMusicToSetlist,
   metadataExists
 } from '../utils/database';
 
@@ -61,11 +61,11 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Groups state
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-  const [availableGroups, setAvailableGroups] = useState<string[]>([]);
-  const [newGroupText, setNewGroupText] = useState('');
-  const [showGroupModal, setShowGroupModal] = useState(false);
+  // Setlists state
+  const [selectedSetlists, setselectedSetlists] = useState<string[]>([]);
+  const [availableSetlists, setavailableSetlists] = useState<string[]>([]);
+  const [newSetlistText, setNewSetlistText] = useState('');
+  const [showSetlistModal, setShowSetlistModal] = useState(false);
 
   // Common key signatures
   const keySignatures = [
@@ -100,15 +100,15 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
 
   const loadData = async () => {
     try {
-      // Load available labels and groups
+      // Load available labels and setlists
       const labels = await getAllLabels();
       setAvailableLabels(labels);
 
-      // Load available groups from database
-      const groups = await getAllGroups();
-      setAvailableGroups(groups);
+      // Load available setlists from database
+      const setlists = await getAllSetlists();
+      setavailableSetlists(setlists);
 
-      console.log(musicId, groups);
+      console.log(musicId, setlists);
 
       // For edit/view modes, load existing metadata
       if ((mode === 'edit' || mode === 'view') && musicId) {
@@ -117,21 +117,21 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           const metadata = await getMusicWithMetadata(musicId);
           if (metadata) {
             const { labels, ...metadataOnly } = metadata;
-            const itemGroups = await getGroupsForMusic(musicId); // Separate function
-            console.log("IN METADATA: ", labels, metadataOnly, itemGroups);
+            const itemsetlists = await getSetlistsForMusic(musicId); // Separate function
+            console.log("IN METADATA: ", labels, metadataOnly, itemsetlists);
             setFormData(metadataOnly);
             setSelectedLabels(labels);
-            setSelectedGroups(itemGroups || []);
+            setselectedSetlists(itemsetlists || []);
           }
         } else {
           const { labels, ...metadataOnly } = initialData;
-          const itemGroups = await getGroupsForMusic(musicId); // Separate function
-          console.log("Initial Data: ", labels, metadataOnly, itemGroups);
+          const itemsetlists = await getSetlistsForMusic(musicId); // Separate function
+          console.log("Initial Data: ", labels, metadataOnly, itemsetlists);
           setFormData(metadataOnly);
           setSelectedLabels(labels);
-          setSelectedGroups(itemGroups || []);
+          setselectedSetlists(itemsetlists || []);
 
-          console.log("Data - ", labels, metadataOnly, itemGroups)
+          console.log("Data - ", labels, metadataOnly, itemsetlists)
         }
       }
       // For new items, just set the title if provided
@@ -159,7 +159,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
         });
         console.log(formData)
         // Set default group for new items
-        setSelectedGroups([]);
+        setselectedSetlists([]);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -195,7 +195,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
         key_signature: cleanedFormData.key_signature,
         time_signature: cleanedFormData.time_signature,
         page_count: cleanedFormData.page_count,
-        groups: selectedGroups,
+        setlists: selectedSetlists,
         labels: selectedLabels,
       });
 
@@ -221,7 +221,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
       }
 
       await saveCompleteMetadata(musicId, cleanedFormData, selectedLabels);
-      await setMusicGroups(musicId, selectedGroups);
+      await setMusicSetlists(musicId, selectedSetlists);
 
       Alert.alert("Success", "Metadata saved successfully");
 
@@ -232,7 +232,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
         key_signature: cleanedFormData.key_signature,
         time_signature: cleanedFormData.time_signature,
         page_count: cleanedFormData.page_count,
-        groups: selectedGroups,
+        setlists: selectedSetlists,
         labels: selectedLabels,
       });
     } catch (error) {
@@ -274,27 +274,27 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     );
   };
 
-  const handleAddGroup = () => {
-    if (!newGroupText.trim()) return;
+  const handleAddSetlist = () => {
+    if (!newSetlistText.trim()) return;
 
-    const groupName = newGroupText.trim();
+    const groupName = newSetlistText.trim();
 
-    // Add to available groups if not already there
-    if (!availableGroups.includes(groupName)) {
-      setAvailableGroups(prev => [...prev, groupName]);
+    // Add to available setlists if not already there
+    if (!availableSetlists.includes(groupName)) {
+      setavailableSetlists(prev => [...prev, groupName]);
     }
 
-    // Add to selected groups if not already selected
-    if (!selectedGroups.includes(groupName)) {
-      setSelectedGroups(prev => [...prev, groupName]);
+    // Add to selected setlists if not already selected
+    if (!selectedSetlists.includes(groupName)) {
+      setselectedSetlists(prev => [...prev, groupName]);
     }
 
-    setNewGroupText('');
-    setShowGroupModal(false);
+    setNewSetlistText('');
+    setShowSetlistModal(false);
   };
 
-  const toggleGroup = (groupName: string) => {
-    setSelectedGroups(prev =>
+  const toggleSetlist = (groupName: string) => {
+    setselectedSetlists(prev =>
       prev.includes(groupName)
         ? prev.filter(g => g !== groupName)
         : [...prev, groupName]
@@ -487,31 +487,31 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           {/* Difficulty */}
           {/* {renderDifficultySelector()} */}
 
-          {/* Groups */}
+          {/* setlists */}
           <View className="my-3">
             <View className="flex-row justify-between items-center mb-2">
-              <Text className="text-base font-semibold text-gray-800">Groups</Text>
+              <Text className="text-base font-semibold text-gray-800">setlists</Text>
 
               <TouchableOpacity
-                onPress={() => setShowGroupModal(true)}
+                onPress={() => setShowSetlistModal(true)}
                 className="bg-blue-500 px-4 py-2 rounded-md"
                 style={{ minHeight: 36, justifyContent: 'center' }}
               >
                 <Text className="text-white text-sm font-semibold leading-none self-center" style={{ lineHeight: 18 }}>
-                  + Add Group
+                  + Add Setlist
                 </Text>
               </TouchableOpacity>
             </View>
 
             <View className="flex-row flex-wrap gap-2">
-              {availableGroups.map(group => (
+              {availableSetlists.map(group => (
                 <TouchableOpacity
                   key={group}
-                  className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedGroups.includes(group) ? 'bg-blue-500 border-blue-500' : ''
+                  className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedSetlists.includes(group) ? 'bg-blue-500 border-blue-500' : ''
                     }`}
-                  onPress={() => toggleGroup(group)}
+                  onPress={() => toggleSetlist(group)}
                 >
-                  <Text className={`text-sm ${selectedGroups.includes(group) ? 'text-white' : 'text-gray-800'
+                  <Text className={`text-sm ${selectedSetlists.includes(group) ? 'text-white' : 'text-gray-800'
                     }`}>
                     {group}
                   </Text>
@@ -519,9 +519,9 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
               ))}
             </View>
 
-            {selectedGroups.length === 0 && (
+            {selectedSetlists.length === 0 && (
               <Text className="text-sm text-gray-500 mt-2 italic">
-                No groups selected. Item will be placed in "Ungrouped".
+                No setlists selected. Item will be placed in "Ungrouped".
               </Text>
             )}
           </View>
@@ -560,15 +560,15 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           </View>
         </ScrollView>
 
-        {/* Add Group Modal */}
-        <Modal visible={showGroupModal} transparent animationType="fade">
+        {/* Add Setlist Modal */}
+        <Modal visible={showSetlistModal} transparent animationType="fade">
           <View className="flex-1 bg-black/50 justify-center items-center">
             <View className="bg-white rounded-xl p-6 mx-5 w-full max-w-sm">
-              <Text className="text-lg font-semibold text-gray-800 mb-4 text-center">Add New Group</Text>
+              <Text className="text-lg font-semibold text-gray-800 mb-4 text-center">Add New Setlist</Text>
               <TextInput
                 className="border border-gray-300 rounded-lg px-4 py-3 text-base mb-5"
-                value={newGroupText}
-                onChangeText={setNewGroupText}
+                value={newSetlistText}
+                onChangeText={setNewSetlistText}
                 placeholder="Enter group name"
                 placeholderTextColor="#9CA3AF"
                 autoFocus
@@ -576,15 +576,15 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
               <View className="flex-row gap-3">
                 <TouchableOpacity
                   onPress={() => {
-                    setShowGroupModal(false);
-                    setNewGroupText('');
+                    setShowSetlistModal(false);
+                    setNewSetlistText('');
                   }}
                   className="flex-1 py-3 rounded-lg border border-gray-300 items-center"
                 >
                   <Text className="text-base text-gray-800">Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={handleAddGroup}
+                  onPress={handleAddSetlist}
                   className="flex-1 bg-blue-500 py-3 rounded-lg items-center"
                 >
                   <Text className="text-base text-white font-semibold">Add</Text>

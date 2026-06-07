@@ -57,6 +57,7 @@ export default ({ config }) => ({
   plugins: [
       ...(config.plugins || []),
       ...(process.env.USE_DEV_CLIENT === 'true' ? ['expo-dev-client'] : []),
+      "expo-font"
   ]
 });
 

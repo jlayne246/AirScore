@@ -14,7 +14,7 @@ import * as troubleshooting from "./troubleshooting";
 
 import {
   MusicItem,
-  Group,
+  Setlist,
   Label,
   MusicMetadata,
   MusicMetadataWithLabels,
@@ -60,22 +60,22 @@ export const initDB = async (): Promise<void> => {
         );
       `);
 
-      console.log("DB init: creating groups table");
+      console.log("DB init: creating setlists table");
       await db.execAsync(`
-        CREATE TABLE IF NOT EXISTS groups (
+        CREATE TABLE IF NOT EXISTS setlists (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL UNIQUE
         );
       `);
 
-      console.log("DB init: creating music_groups table");
+      console.log("DB init: creating music_setlists table");
       await db.execAsync(`
-        CREATE TABLE IF NOT EXISTS music_groups (
+        CREATE TABLE IF NOT EXISTS music_setlists (
           music_id INTEGER,
           group_id INTEGER,
           PRIMARY KEY (music_id, group_id),
           FOREIGN KEY (music_id) REFERENCES music (id) ON DELETE CASCADE,
-          FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE CASCADE
+          FOREIGN KEY (group_id) REFERENCES setlists (id) ON DELETE CASCADE
         );
       `);
 
@@ -196,22 +196,22 @@ export const insertMusic = async (
         for (const groupName of groupNames) {
             // Insert group if it doesn't exist
             await db.runAsync(
-                'INSERT OR IGNORE INTO groups (name) VALUES (?)', [groupName]
+                'INSERT OR IGNORE INTO setlists (name) VALUES (?)', [groupName]
             );
 
             // Get the group ID
-            const group = await db.getFirstAsync<Group>(
-                'SELECT id FROM groups WHERE name = ?', [groupName]
+            const group = await db.getFirstAsync<Setlist>(
+                'SELECT id FROM setlists WHERE name = ?', [groupName]
             );
 
             // Checks to see if a group id was returned, otherwise, an error is thrown
             if (!group || typeof group.id == 'undefined') {
-                throw new Error(`Group "${groupName}" not found after insertion`)
+                throw new Error(`Setlist "${groupName}" not found after insertion`)
             }
 
             // Create the relationship between the music item and the group(s)
             await db.runAsync(
-                'INSERT INTO music_groups (music_id, group_id) VALUES (?, ?)', [musicId, group.id]
+                'INSERT INTO music_setlists (music_id, group_id) VALUES (?, ?)', [musicId, group.id]
             );
         }
 
@@ -308,9 +308,9 @@ export const updateMusic = async (
       [title, uri, updated, id]
     );
 
-    // Insert any new groups (ignore existing)
+    // Insert any new setlists (ignore existing)
     for (const groupName of groupNames) {
-      await db.runAsync("INSERT OR IGNORE INTO groups (name) VALUES (?)", [
+      await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
         groupName,
       ]);
     }
@@ -318,23 +318,23 @@ export const updateMusic = async (
     // Get all current group IDs
     const groupIds = [];
     for (const name of groupNames) {
-      const group = await db.getFirstAsync<Group>(
-        "SELECT id FROM groups WHERE name = ?",
+      const group = await db.getFirstAsync<Setlist>(
+        "SELECT id FROM setlists WHERE name = ?",
         [name]
       );
       if (!group || group.id === undefined) {
-        throw new Error(`Group "${name}" not found after insertion`);
+        throw new Error(`Setlist "${name}" not found after insertion`);
       }
       groupIds.push(group.id);
     }
 
     // Remove all existing associations
-    await db.runAsync("DELETE FROM music_groups WHERE music_id = ?", [id]);
+    await db.runAsync("DELETE FROM music_setlists WHERE music_id = ?", [id]);
 
     // Re-insert updated associations
     for (const groupId of groupIds) {
       await db.runAsync(
-        "INSERT INTO music_groups (music_id, group_id) VALUES (?, ?)",
+        "INSERT INTO music_setlists (music_id, group_id) VALUES (?, ?)",
         [id, groupId]
       );
     }
@@ -348,11 +348,11 @@ export const updateMusic = async (
   
 
 /**
- * Gets all music with their groups
- * @returns Array of music items with their groups
+ * Gets all music with their setlists
+ * @returns Array of music items with their setlists
  */
-export const getAllMusicWithGroups = async (): Promise<
-  Array<MusicItem & { groups: string[] }>
+export const getAllMusicWithSetlists = async (): Promise<
+  Array<MusicItem & { setlists: string[] }>
 > => {
     const db = await openDatabase();
 
@@ -366,7 +366,7 @@ export const getAllMusicWithGroups = async (): Promise<
     console.log("Here!")
 
     try {
-        // For each music item, get its groups
+        // For each music item, get its setlists
         const result = await Promise.all(
             musicItems.map(async (music) => {
             // Checks to see if the music item exists and is retrievable
@@ -374,18 +374,18 @@ export const getAllMusicWithGroups = async (): Promise<
                 throw new Error("Unable to retrieve music item");
             }
 
-            const groups = await db.getAllAsync<{ name: string }>(
+            const setlists = await db.getAllAsync<{ name: string }>(
                 `SELECT g.name
-                    FROM groups g
-                    JOIN music_groups mg ON g.id = mg.group_id
+                    FROM setlists g
+                    JOIN music_setlists mg ON g.id = mg.group_id
                     WHERE mg.music_id = ?`,
                 [music.id]
             );
 
-            // Returns the music array mapped to the groups from sub-function
+            // Returns the music array mapped to the setlists from sub-function
             return {
                 ...music, // Expanded music array
-                groups: groups.map((g) => g.name),
+                setlists: setlists.map((g) => g.name),
             };
             })
         );
@@ -397,11 +397,11 @@ export const getAllMusicWithGroups = async (): Promise<
 };
 
 /**
- * Get music items that belong to all of the specified groups
+ * Get music items that belong to all of the specified setlists
  * @param groupNames - Array of group names to filter by
- * @returns Array of music items that belong to all specified groups
+ * @returns Array of music items that belong to all specified setlists
  */
-export const getMusicByMultipleGroups = async (groupNames: string[]) : Promise<MusicItem[]> => {
+export const getMusicByMultipleSetlists = async (groupNames: string[]) : Promise<MusicItem[]> => {
     // If the groupNames param is empty, return an empty array
     if (groupNames.length === 0) {
         return [];
@@ -412,12 +412,12 @@ export const getMusicByMultipleGroups = async (groupNames: string[]) : Promise<M
     // Create placeholders for the query
     const placeholders = groupNames.map(() => '?').join(',');
 
-    // Query for all music items that match the specified groups, grouped by groupName
+    // Query for all music items that match the specified setlists, grouped by groupName
     const result = await db.getAllAsync<MusicItem>(
         `SELECT m.*
         FROM music m
-        JOIN music_groups mg ON m.id = mg.music_id
-        JOIN groups g ON mg.group_id = g.id
+        JOIN music_setlists mg ON m.id = mg.music_id
+        JOIN setlists g ON mg.group_id = g.id
         WHERE g.name IN (${placeholders})
         GROUP BY m.id
         HAVING COUNT(DISTINCT g.name) = ?`, 
@@ -434,7 +434,7 @@ export const getMusicByMultipleGroups = async (groupNames: string[]) : Promise<M
 export const deleteMusic = async (id: number) => {
   const db = openDatabase();
 
-  // Due to ON DELETE CASCADE, this will also remove entries in music_groups
+  // Due to ON DELETE CASCADE, this will also remove entries in music_setlists
   (await db).runAsync('DELETE FROM music WHERE id = ?', [id]);
 }
 
@@ -443,7 +443,7 @@ export const deleteMusic = async (id: number) => {
  * @param musicId - ID of the music item
  * @param groupName - Name of the group
  */
-export const addMusicToGroup = async (musicId: number, groupName: string) => {
+export const addMusicToSetlist = async (musicId: number, groupName: string) => {
     const db = await openDatabase();
 
     try {
@@ -451,7 +451,7 @@ export const addMusicToGroup = async (musicId: number, groupName: string) => {
 
         // Insert group if it doesn't exist
         if (groupName !== "Ungrouped") {
-          await db.runAsync("INSERT OR IGNORE INTO groups (name) VALUES (?)", [
+          await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
             groupName,
           ]);
         }          
@@ -459,18 +459,18 @@ export const addMusicToGroup = async (musicId: number, groupName: string) => {
         console.log(musicId, groupName);
 
         // Get the group ID
-        const group = await db.getFirstAsync<Group>(
-            'SELECT id FROM groups WHERE name = ?', [groupName]
+        const group = await db.getFirstAsync<Setlist>(
+            'SELECT id FROM setlists WHERE name = ?', [groupName]
         );
 
         // Verify if we get a valid group
         if (!group || typeof group.id == "undefined") {
-            throw new Error(`Group "${groupName}" not found`);
+            throw new Error(`Setlist "${groupName}" not found`);
         }
 
         // Create the relationship between the musicItem and its group
         await db.runAsync(
-            'INSERT OR IGNORE INTO music_groups (music_id, group_id) VALUES (?, ?)',
+            'INSERT OR IGNORE INTO music_setlists (music_id, group_id) VALUES (?, ?)',
             [musicId, group.id]
         );
 
@@ -488,41 +488,41 @@ export const addMusicToGroup = async (musicId: number, groupName: string) => {
  * @param musicId - ID of the music item
  * @param groupName - Name of the group
  */
-export const removeMusicFromGroup = async (musicId: number, groupName: string) => {
+export const removeMusicFromSetlist = async (musicId: number, groupName: string) => {
     const db = await openDatabase();
 
     // Deletes item from group by ID
     await db.runAsync(
-        `DELETE FROM music_groups
+        `DELETE FROM music_setlists
         WHERE music_id = ? AND group_id = (
-            SELECT id FROM groups WHERE name = ?
+            SELECT id FROM setlists WHERE name = ?
         )`, [musicId, groupName]
     );
 }
 
-export const setMusicGroups = async (musicId: number, groupNames: string[]) => {
+export const setMusicSetlists = async (musicId: number, groupNames: string[]) => {
     const db = await openDatabase();
 
     try {
         await db.execAsync("BEGIN TRANSACTION");
 
-        // Remove all current groups
-        await db.runAsync("DELETE FROM music_groups WHERE music_id = ?", [musicId]);
+        // Remove all current setlists
+        await db.runAsync("DELETE FROM music_setlists WHERE music_id = ?", [musicId]);
 
         // Re-add current selections (excluding "Ungrouped")
         for (const groupName of groupNames.filter((g) => g !== "Ungrouped")) {
-        await db.runAsync("INSERT OR IGNORE INTO groups (name) VALUES (?)", [
+        await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
             groupName,
         ]);
 
         const group = await db.getFirstAsync<{ id: number }>(
-            "SELECT id FROM groups WHERE name = ?",
+            "SELECT id FROM setlists WHERE name = ?",
             [groupName]
         );
 
         if (group?.id !== undefined) {
             await db.runAsync(
-            "INSERT INTO music_groups (music_id, group_id) VALUES (?, ?)",
+            "INSERT INTO music_setlists (music_id, group_id) VALUES (?, ?)",
             [musicId, group.id]
             );
         }
@@ -531,7 +531,7 @@ export const setMusicGroups = async (musicId: number, groupNames: string[]) => {
         await db.execAsync("COMMIT");
     } catch (error) {
         await db.execAsync("ROLLBACK");
-        console.error("Failed to set music groups:", error);
+        console.error("Failed to set music setlists:", error);
         throw error;
     }
 };
@@ -545,10 +545,10 @@ export const setMusicGroups = async (musicId: number, groupNames: string[]) => {
 export const dropTables = async (
   tableNames: string[] = [
     "music_labels",
-    "music_groups",
+    "music_setlists",
     "music_metadata",
     "labels",
-    "groups",
+    "setlists",
     "music"
   ]
 ) => {
@@ -822,11 +822,11 @@ export const getMusicWithAllData = async (): Promise<
             throw new Error("Unable to retrieve music item");
             }
 
-            // Get groups
-            const groups = await db.getAllAsync<{ name: string }>(
+            // Get setlists
+            const setlists = await db.getAllAsync<{ name: string }>(
             `SELECT g.name
-                        FROM groups g
-                        JOIN music_groups mg ON g.id = mg.group_id
+                        FROM setlists g
+                        JOIN music_setlists mg ON g.id = mg.group_id
                         WHERE mg.music_id = ?`,
             [music.id]
             );
@@ -852,15 +852,15 @@ export const getMusicWithAllData = async (): Promise<
 
             return {
             ...music,
-            groups: groups.map((g) => g.name),
-            metadata: metadata ? { ...metadata, labels, groups } : null,
+            setlists: setlists.map((g) => g.name),
+            metadata: metadata ? { ...metadata, labels, setlists } : null,
             };
         })
         );
 
         return result;
     } catch (error) {
-        console.error("Error fetching music with groups and metadata:", error);
+        console.error("Error fetching music with setlists and metadata:", error);
         throw error;
     }
 };
@@ -870,47 +870,47 @@ export const getMusicWithAllData = async (): Promise<
  * 
  * @returns 
  */
-export const getAllGroups = async (): Promise<string[]> => {
+export const getAllSetlists = async (): Promise<string[]> => {
     const db = await openDatabase();
 
     try {
-        const groups = await db.getAllAsync<{ group_name: string }>(`
+        const setlists = await db.getAllAsync<{ group_name: string }>(`
             SELECT DISTINCT name as group_name
-            FROM groups
+            FROM setlists
             WHERE name IS NOT NULL
             ORDER BY name ASC
         `);
 
-        return groups.map((g) => g.group_name);
+        return setlists.map((g) => g.group_name);
     } catch (error) {
-        console.error("Error getting all groups:", error);
+        console.error("Error getting all setlists:", error);
         return []; // No fallback 'Ungrouped' needed here
     }
 };
   
 
-export const getGroupsForMusic = async (musicId: number): Promise<string[]> => {
+export const getSetlistsForMusic = async (musicId: number): Promise<string[]> => {
     const db = await openDatabase();
 
     try {
-        // Query to get groups associated with a specific music item
-        // This assumes you have a junction table like 'music_groups' or similar
-        const groups = await db.getAllAsync<{ group_name: string }>(
+        // Query to get setlists associated with a specific music item
+        // This assumes you have a junction table like 'music_setlists' or similar
+        const setlists = await db.getAllAsync<{ group_name: string }>(
         `
             SELECT g.name as group_name
-            FROM groups g
-            INNER JOIN music_groups mg ON g.id = mg.group_id
+            FROM setlists g
+            INNER JOIN music_setlists mg ON g.id = mg.group_id
             WHERE mg.music_id = ?
             ORDER BY g.name ASC
         `,
         [musicId]
         );
 
-        console.log(groups);
+        console.log(setlists);
 
-        return groups.length > 0 ? groups.map((g) => g.group_name) : ["Ungrouped"];      
+        return setlists.length > 0 ? setlists.map((g) => g.group_name) : ["Ungrouped"];      
     } catch (error) {
-        console.error("Error getting groups for music:", error);
+        console.error("Error getting setlists for music:", error);
         return ["Ungrouped"]; // Return default group on error
     }
 };

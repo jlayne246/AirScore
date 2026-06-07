@@ -9,7 +9,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, MusicItem, MusicItemWithAllData, MetadataFormData, MusicMetadata } from '../types';
 
 import { UploadLocalPDF } from '../utils/fileUtils';
-import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic, saveCompleteMetadata, metadataExists, musicExistsByUri } from "../utils/database";
+import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleSetlists, deleteMusic, saveCompleteMetadata, metadataExists, musicExistsByUri } from "../utils/database";
 
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
 
@@ -18,7 +18,7 @@ import DeleteModal from '../components/DeleteModal'; // Adjust path as needed
 
 import * as troubleshooting from "../utils/troubleshooting";
 
-type FilterOption = 'title' | 'composer' | 'group' | 'any';
+type FilterOption = 'title' | 'composer' | 'setlist' | 'any';
 
 const LibraryScreen = ({}) => {
     const [musicList, setMusicList] = useState<Array<MusicItemWithAllData>>([]);
@@ -44,15 +44,15 @@ const LibraryScreen = ({}) => {
 
     const [refreshing, setRefreshing] = React.useState(false);
 
-    const filterOptions: FilterOption[] = ["any", "title", "composer", "group"];
+    const filterOptions: FilterOption[] = ["any", "title", "composer", "setlist"];
     const [selectedIndex, setSelectedIndex] = useState(0);
 
-    const filterButtons = ['Any', 'Title', 'Composer', 'Group'];
+    const filterButtons = ['Any', 'Title', 'Composer', 'Setlist'];
     const filterMap: Record<number, FilterOption> = {
         0: 'any',
         1: 'title',
         2: 'composer',
-        3: 'group',
+        3: 'setlist',
     };
 
     useEffect(() => {
@@ -133,14 +133,14 @@ const LibraryScreen = ({}) => {
             return;
             }
 
-            const cleanGroups = (formData.groups ?? []).filter(
+            const cleansetlists = (formData.setlists ?? []).filter(
                 g => g !== "Ungrouped"
             );
 
             const insertedId = await insertMusic(
                 formData.title,
                 pendingPdfUri,
-                cleanGroups,
+                cleansetlists,
                 now
             );
 
@@ -214,25 +214,36 @@ const LibraryScreen = ({}) => {
         setDeletedMusicId(id);
     }
 
-    const openPDF = (uri: string) => {
-        navigation.navigate('Reader', { uri });
+    const [openingId, setOpeningId] = useState<number | null>(null);
+
+    const openPDF = (item: MusicItemWithAllData) => {
+        if (!item.uri || openingId === item.id) return;
+
+        setOpeningId(item.id ?? null);
+
+        navigation.navigate("Reader", {
+            uri: item.uri,
+            musicId: item.id,
+        });
+
+        setTimeout(() => setOpeningId(null), 1000);
     };
 
     const groupMusicByLetter = (items: typeof musicList) => {
-        const groups: Record<string, typeof musicList> = {};
+        const setlists: Record<string, typeof musicList> = {};
     
         items.forEach(item => {
             const title = item?.title || item.title || '';
             const letter = title[0]?.toUpperCase() || '#';
-            if (!groups[letter]) groups[letter] = [];
-            groups[letter].push(item);
+            if (!setlists[letter]) setlists[letter] = [];
+            setlists[letter].push(item);
         });
     
-        return Object.keys(groups)
+        return Object.keys(setlists)
         .sort()
         .map(letter => ({
             title: letter,
-            data: groups[letter],
+            data: setlists[letter],
         }));
     };
     
@@ -241,14 +252,14 @@ const LibraryScreen = ({}) => {
     const filteredMusic = musicList.filter((item) => {
         const title = item.metadata?.title?.toLowerCase() || '';
         const composer = item.metadata?.composer?.toLowerCase() || '';
-        const groupArray = item.groups || [];
+        const groupArray = item.setlists || [];
         const groupMatch = groupArray.some(g => g.toLowerCase().includes(query));
 
         const query = searchQuery.toLowerCase();
 
         if (filterBy === 'title') return title.includes(query);
         if (filterBy === 'composer') return composer.includes(query);
-        if (filterBy === 'group') return groupMatch;
+        if (filterBy === 'setlist') return groupMatch;
         
         // Default: search across any
         return title.includes(query) || composer.includes(query) || groupMatch;
@@ -290,68 +301,68 @@ const LibraryScreen = ({}) => {
     // Render individual music item
     const renderMusicItem = ({ item }: { item: MusicItemWithAllData }) => (
         <TouchableOpacity className="bg-white rounded-lg p-4 mb-3 flex-row justify-between items-center shadow-sm shadow-black/10 elevation-3"
-        onPress={() => openPDF(item.uri || '')}>
-        <View className="flex-1">
-            <Text className="text-base font-semibold text-gray-800 mb-1">{item.metadata?.title ?? '[No title]'}</Text>
-            <Text className="text-sm text-gray-600">Composer: {item.metadata?.composer ?? '[No composer]'}</Text>
-            <Text className="text-sm text-gray-600">
-            Groups: {item.groups.length > 0 ? item.groups.join(', ') : 'None'}
-            </Text>
-            {item.metadata?.labels && item.metadata.labels.length > 0 && (
-                <Text className="text-sm text-gray-500 mt-1">
-                Labels: {item.metadata.labels.join(', ')}
+        onPress={() => openPDF(item)}>
+            <View className="flex-1">
+                <Text className="text-base font-semibold text-gray-800 mb-1">{item.metadata?.title ?? '[No title]'}</Text>
+                <Text className="text-sm text-gray-600">Composer: {item.metadata?.composer ?? '[No composer]'}</Text>
+                <Text className="text-sm text-gray-600">
+                Setlists: {item.setlists.length > 0 ? item.setlists.join(', ') : 'None'}
                 </Text>
-            )}
-        </View>
-        
-        <View className="flex-row gap-2">
-            <Menu>
-                <MenuTrigger>
-                    <Entypo name='dots-three-vertical' size={20} color={"gray"} />
-                </MenuTrigger>
-                <MenuOptions
-                    customStyles={{
-                        optionsContainer: {
-                            backgroundColor: 'white',
-                            borderRadius: 8,
-                            paddingVertical: 4,
-                            elevation: 5,
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.2,
-                            shadowRadius: 4,
-                            marginTop: 20,
-                            width: 150
-                        }
-                    }}
-                >
-                    <MenuOption
-                        onSelect={() => item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)}
+                {item.metadata?.labels && item.metadata.labels.length > 0 && (
+                    <Text className="text-sm text-gray-500 mt-1">
+                    Labels: {item.metadata.labels.join(', ')}
+                    </Text>
+                )}
+            </View>
+            
+            <View className="flex-row gap-2">
+                <Menu>
+                    <MenuTrigger>
+                        <Entypo name='dots-three-vertical' size={20} color={"gray"} />
+                    </MenuTrigger>
+                    <MenuOptions
                         customStyles={{
-                            optionWrapper: {padding: 10},
-                            optionText: {fontSize: 14, color: '#333'}
+                            optionsContainer: {
+                                backgroundColor: 'white',
+                                borderRadius: 8,
+                                paddingVertical: 4,
+                                elevation: 5,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.2,
+                                shadowRadius: 4,
+                                marginTop: 20,
+                                width: 150
+                            }
                         }}
-                        text='Edit Details'
-                    />
-                    <MenuOption
-                        onSelect={() => item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)}
-                        customStyles={{
-                            optionWrapper: {padding: 10},
-                            optionText: {fontSize: 14, color: '#333'}
-                        }}
-                        text='Share'
-                    />
-                    <MenuOption
-                        onSelect={() => handleDelete(item.id!)}
-                        customStyles={{
-                            optionWrapper: {padding: 10},
-                            optionText: {fontSize: 14, color: '#333'}
-                        }}
-                        text='Delete'
-                    />
-                </MenuOptions>
-            </Menu>
-        </View>
+                    >
+                        <MenuOption
+                            onSelect={() => item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)}
+                            customStyles={{
+                                optionWrapper: {padding: 10},
+                                optionText: {fontSize: 14, color: '#333'}
+                            }}
+                            text='Edit Details'
+                        />
+                        <MenuOption
+                            onSelect={() => item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)}
+                            customStyles={{
+                                optionWrapper: {padding: 10},
+                                optionText: {fontSize: 14, color: '#333'}
+                            }}
+                            text='Share'
+                        />
+                        <MenuOption
+                            onSelect={() => handleDelete(item.id!)}
+                            customStyles={{
+                                optionWrapper: {padding: 10},
+                                optionText: {fontSize: 14, color: '#333'}
+                            }}
+                            text='Delete'
+                        />
+                    </MenuOptions>
+                </Menu>
+            </View>
         </TouchableOpacity>
     );
 
