@@ -8,8 +8,18 @@ interface BufferedPDFViewerProps {
   uri: string;
 }
 
-const BUFFER_BEHIND = 1;
-const BUFFER_AHEAD = 2;
+const BUFFER_BEHIND = 1; // Set to 2
+const BUFFER_AHEAD = 2; // Set to 3
+
+/* const PERFORMANCE_BUFFER = {
+  behind: 2,
+  ahead: 3,
+};
+
+const STUDY_BUFFER = {
+  behind: 1,
+  ahead: 1,
+}; */
 
 // Temporary until you can detect total pages properly
 const FALLBACK_TOTAL_PAGES = 6;
