@@ -17,6 +17,10 @@ type RenderPageResult = {
 
 const { AirScorePdfRenderer } = NativeModules;
 
+if (!AirScorePdfRenderer) {
+  throw new Error('AirScorePdfRenderer native module is not registered.');
+}
+
 export default {
   getPageCount(pdfPath: string): Promise<number> {
     return AirScorePdfRenderer.getPageCount(pdfPath);
@@ -28,5 +32,5 @@ export default {
 
   clearDocumentCache(pdfPath: string): Promise<boolean> {
     return AirScorePdfRenderer.clearDocumentCache(pdfPath);
-  }
+  },
 };
