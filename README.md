@@ -31,7 +31,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/jlayne246/AirScore">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
+    <img src="https://github.com/jlayne246/AirScore/blob/main/airscore/assets/icon.png" alt="Logo" width="80" height="80">
   </a>
 
 <h3 align="center">AirScore</h3>
