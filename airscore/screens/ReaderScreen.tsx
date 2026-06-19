@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import PDFViewer from '../components/PDFViewer';
+import BufferedPDFViewer from '../components/BufferedPDFViewer';
 
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
@@ -41,7 +42,7 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
 
     return (
         <SafeAreaView style={{ flex: 1 }}>
-        <PDFViewer uri={uri} />
+        <BufferedPDFViewer uri={uri} />
         </SafeAreaView>
     );
 };
