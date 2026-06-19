@@ -74,14 +74,17 @@ class AirScorePdfRendererModule(
                 PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY
             )
 
-            val cacheDir = File(reactApplicationContext.cacheDir, "airscore-rendered-pages")
+            val cacheDir = File(
+                reactApplicationContext.cacheDir,
+                "airscore-rendered-pages/$pdfKey"
+            )
             if (!cacheDir.exists()) {
                 cacheDir.mkdirs()
             }
 
             val outputFile = File(
                 cacheDir,
-                "${pdfKey}_page_${pageNumber}_${width}x${height}.png"
+                "page_${pageNumber}_${width}x${height}.png"
             )
 
             FileOutputStream(outputFile).use { output ->
@@ -121,6 +124,26 @@ class AirScorePdfRendererModule(
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("CACHE_CLEAR_ERROR", e)
+        }
+    }
+
+    @ReactMethod
+    fun clearDocumentCache(pdfPath: String, promise: Promise) {
+        try {
+            val file = resolveFile(pdfPath)
+            val pdfKey = file.absolutePath.hashCode()
+    
+            val cacheDir = File(
+                reactApplicationContext.cacheDir,
+                "airscore-rendered-pages/$pdfKey"
+            )
+    
+            cacheDir.deleteRecursively()
+            cacheDir.mkdirs()
+    
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("DOCUMENT_CACHE_CLEAR_ERROR", e)
         }
     }
 
