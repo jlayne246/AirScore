@@ -22,11 +22,14 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
   const renderingPages = useRef<Set<number>>(new Set());
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages] = useState(FALLBACK_TOTAL_PAGES);
+  const [totalPages, setTotalPages] = useState(1);
   const [pageImages, setPageImages] = useState<Record<number, string>>({});
   const pageImagesRef = useRef<Record<number, string>>({});
 
   const [jumpPage, setJumpPage] = useState('');
+
+  const detectedTotal = await AirScorePdfRenderer.getPageCount(uri);
+  setTotalPages(detectedTotal);
 
   const renderPage = useCallback(
     async (page: number) => {
