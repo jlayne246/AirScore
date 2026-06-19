@@ -25,4 +25,8 @@ export default {
   renderPage(options: RenderPageOptions): Promise<RenderPageResult> {
     return AirScorePdfRenderer.renderPage(options);
   },
+
+  clearDocumentCache(pdfPath: string): Promise<boolean> {
+    return AirScorePdfRenderer.clearDocumentCache(pdfPath);
+  }
 };
