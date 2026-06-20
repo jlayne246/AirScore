@@ -15,14 +15,14 @@ export default ({ config }) => ({
   name: "AirScore",
   slug: "airscore",
   version: "1.0.0",
-  orientation: "portrait",
-  icon: "./assets/icon.png",
+  orientation: "default",
+  icon: "./assets/adaptive-icon.png",
   userInterfaceStyle: "light",
   newArchEnabled: true,
   splash: {
     image: "./assets/splash-icon.png",
     resizeMode: "contain",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#0099FF",
   },
   ios: {
     supportsTablet: true,
@@ -30,7 +30,7 @@ export default ({ config }) => ({
   android: {
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#ffffff",
+      backgroundColor: "#0099FF",
     },
     edgeToEdgeEnabled: true,
     package: "com.jlayne246.airscore"

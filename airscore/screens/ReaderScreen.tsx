@@ -26,11 +26,7 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
 
     React.useLayoutEffect(() => {
         navigation.setOptions({
-            headerTitle: 'Sheet Music Viewer',
-            headerStyle: {
-                backgroundColor: 'white',
-            },
-            headerTintColor: 'black',
+            headerShown: false,
         });
     }, [navigation]);
 

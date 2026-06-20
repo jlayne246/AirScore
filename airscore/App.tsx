@@ -7,6 +7,8 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
 // Imports the different screens
 import LibraryScreen from './screens/LibraryScreen';
 import ReaderScreen from './screens/ReaderScreen';
@@ -44,7 +46,7 @@ export default function App() {
 
     if (!dbReady) {
       return (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", width: "100%" }}>
           <ActivityIndicator />
         </View>
       );
@@ -53,23 +55,32 @@ export default function App() {
     console.log(showDevTools)
 
     return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: 'black' }}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <View style={{ flex: 1, backgroundColor: 'black', width: '100%' }}>
 
-        {/* <View className="flex-1 bg-black"> */}
-          <MenuProvider>
-            <NavigationContainer>
-              <Stack.Navigator initialRouteName="Dashboard">
-                <Stack.Screen name="Dashboard" component={DashboardScreen} />
-                <Stack.Screen name="Library" component={LibraryScreen} />
-                <Stack.Screen name="Reader" component={ReaderScreen} initialParams={{ uri: '' }} />
-              </Stack.Navigator>
-            </NavigationContainer>
-          </MenuProvider>
+          {/* <View className="flex-1 bg-black"> */}
+            <MenuProvider>
+              <NavigationContainer>
+                <Stack.Navigator initialRouteName="Dashboard">
+                  <Stack.Screen name="Dashboard" component={DashboardScreen} />
+                  <Stack.Screen name="Library" component={LibraryScreen} />
+                  <Stack.Screen
+                    name="Reader"
+                    component={ReaderScreen}
+                    initialParams={{ uri: '' }}
+                    options={{
+                      headerShown: false,
+                    }}
+                  />
+                </Stack.Navigator>
+              </NavigationContainer>
+            </MenuProvider>
 
-          {__DEV__ && <DevToolsButton />}
-        </View>
-      </SafeAreaProvider>
+            {__DEV__ && <DevToolsButton />}
+          </View>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     );  
   }
 
