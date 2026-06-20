@@ -30,6 +30,8 @@ interface BufferedPDFViewerProps {
   uri: string;
 }
 
+const ACCENT_COLOR = '#2563EB';
+
 type DisplayMode =
   | "single"
   | "twoPage";
@@ -76,7 +78,7 @@ function RenderedPage({
         ) : (
           <View style={{ alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <ActivityIndicator />
-            <Text style={{ color: 'black' }}>
+            <Text style={{ color: ACCENT_COLOR  }}>
               Rendering page {pageNumber}…
             </Text>
           </View>
@@ -426,11 +428,13 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
             }}
           >
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text style={{ fontSize: 28 }}>‹</Text>
+              <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>
+                ‹
+              </Text>
             </TouchableOpacity>
 
             <View style={{ alignItems: 'center', flex: 1 }}>
-              <Text style={{ fontWeight: '700', fontSize: 22 }}>
+              <Text style={{ fontWeight: '700', fontSize: 22, color: ACCENT_COLOR }}>
                 Amazing Grace
               </Text>
 
@@ -441,7 +445,7 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
 
             <Menu>
               <MenuTrigger>
-                <Text style={{ fontSize: 28, paddingHorizontal: 8 }}>⋮</Text>
+                <Text style={{ fontSize: 28, paddingHorizontal: 8, color: ACCENT_COLOR  }}>⋮</Text>
               </MenuTrigger>
 
               <MenuOptions
@@ -459,7 +463,7 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
                     );
                   }}
                 >
-                  <Text style={{ padding: 10, fontSize: 16 }}>
+                  <Text style={{ padding: 10, fontSize: 16, color: ACCENT_COLOR  }}>
                     View: {displayMode === 'twoPage' ? 'Two Page' : 'Single Page'}
                   </Text>
                 </MenuOption>
@@ -469,7 +473,7 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
                     setCoverOffset((v) => !v);
                   }}
                 >
-                  <Text style={{ padding: 10, fontSize: 16 }}>
+                  <Text style={{ padding: 10, fontSize: 16, color: ACCENT_COLOR  }}>
                     Cover Offset: {coverOffset ? 'On' : 'Off'}
                   </Text>
                 </MenuOption>
@@ -584,7 +588,9 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <ActivityIndicator />
-            <Text>Opening score…</Text>
+            <Text style={{ color: ACCENT_COLOR }}>
+              Opening score…
+            </Text>
           </View>
         )}
       {/* </GestureDetector> */}
@@ -611,8 +617,8 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
             style={{ alignItems: 'center' }}
             onPress={() => goToPage(currentPage - pageStep)}
           >
-            <Text style={{ fontSize: 28 }}>≪</Text>
-            <Text style={{ fontSize: 14 }}>Previous</Text>
+            <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>≪</Text>
+            <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Previous</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -622,32 +628,32 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
               setJumpOverlayVisible(true);
             }}
           >
-            <Text style={{ fontSize: 28 }}>▦</Text>
-            <Text style={{ fontSize: 14 }}>Jump</Text>
+            <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>▦</Text>
+            <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Jump</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={{ alignItems: 'center' }}
             onPress={() => console.log('Annotate')}
           >
-            <Text style={{ fontSize: 28 }}>✎</Text>
-            <Text style={{ fontSize: 14 }}>Annotate</Text>
+            <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>✎</Text>
+            <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Annotate</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={{ alignItems: 'center' }}
             onPress={() => console.log('Bookmark')}
           >
-            <Text style={{ fontSize: 28 }}>♡</Text>
-            <Text style={{ fontSize: 14 }}>Bookmark</Text>
+            <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>♡</Text>
+            <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Bookmark</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={{ alignItems: 'center' }}
             onPress={() => goToPage(currentPage + pageStep)}
           >
-            <Text style={{ fontSize: 28 }}>≫</Text>
-            <Text style={{ fontSize: 14 }}>Next</Text>
+            <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>≫</Text>
+            <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Next</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -674,7 +680,7 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
               padding: 20,
             }}
           >
-            <Text style={{ fontSize: 20, fontWeight: '700', marginBottom: 12 }}>
+            <Text style={{ fontSize: 20, fontWeight: '700', marginBottom: 12, color: ACCENT_COLOR  }}>
               Jump to Page
             </Text>
 
