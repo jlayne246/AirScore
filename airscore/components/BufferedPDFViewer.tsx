@@ -1,35 +1,38 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, View } from 'react-native';
-import { TextInput, Button } from 'react-native';
+import {
+  ActivityIndicator,
+  Button,
+  Image,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import PagerView from 'react-native-pager-view';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
-
-
 
 interface BufferedPDFViewerProps {
   uri: string;
 }
 
+type DisplayMode =
+  | "single"
+  | "twoPage";
+
 const BUFFER_BEHIND = 2;
 const BUFFER_AHEAD = 4;
-
-// Temporary until getPageCount is fully wired/tested
-const FALLBACK_TOTAL_PAGES = 39;
 
 const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
   const pagerRef = useRef<PagerView>(null);
   const renderingPages = useRef<Set<number>>(new Set());
+  const pageImagesRef = useRef<Record<number, string>>({});
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageImages, setPageImages] = useState<Record<number, string>>({});
-  const pageImagesRef = useRef<Record<number, string>>({});
-
   const [jumpPage, setJumpPage] = useState('');
-
-  const detectedTotal = await AirScorePdfRenderer.getPageCount(uri);
-  setTotalPages(detectedTotal);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("single");
 
   const renderPage = useCallback(
     async (page: number) => {
@@ -70,25 +73,52 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
 
   const renderBufferAround = useCallback(
     (page: number) => {
-      const pages: number[] = [];
+      const pages: number[] = [page];
 
-      // Current page first
-      pages.push(page);
-
-      // Forward pages next
-      for (let p = page + 1; p <= Math.min(totalPages, page + BUFFER_AHEAD); p++) {
+      for (
+        let p = page + 1;
+        p <= Math.min(totalPages, page + BUFFER_AHEAD);
+        p++
+      ) {
         pages.push(p);
       }
 
-      // Backward pages last
-      for (let p = page - 1; p >= Math.max(1, page - BUFFER_BEHIND); p--) {
+      for (
+        let p = page - 1;
+        p >= Math.max(1, page - BUFFER_BEHIND);
+        p--
+      ) {
         pages.push(p);
       }
 
-      pages.forEach((p) => renderPage(p));
+      pages.forEach(renderPage);
     },
     [renderPage, totalPages]
   );
+
+  useEffect(() => {
+    const loadDisplayMode = async () => {
+      const saved = await AsyncStorage.getItem(
+        "reader:displayMode"
+      );
+
+      if (
+        saved === "single" ||
+        saved === "twoPage"
+      ) {
+        setDisplayMode(saved);
+      }
+    };
+
+    loadDisplayMode();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem(
+      "reader:displayMode",
+      displayMode
+    );
+  }, [displayMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,23 +130,25 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
       setPageImages({});
       renderingPages.current.clear();
 
+      const detectedTotal = await AirScorePdfRenderer.getPageCount(uri);
+
+      if (cancelled) return;
+
+      setTotalPages(detectedTotal);
+
       const saved = await AsyncStorage.getItem(`pdf:lastPage:${uri}`);
       const savedPage = saved ? Number(saved) : 1;
 
       const safePage =
         Number.isFinite(savedPage) && savedPage > 0
-          ? Math.min(savedPage, totalPages)
+          ? Math.min(savedPage, detectedTotal)
           : 1;
-
-      if (cancelled) return;
 
       setCurrentPage(safePage);
 
       requestAnimationFrame(() => {
         pagerRef.current?.setPageWithoutAnimation(safePage - 1);
       });
-
-      renderBufferAround(safePage);
     };
 
     initialiseDocument();
@@ -124,7 +156,7 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
     return () => {
       cancelled = true;
     };
-  }, [uri, totalPages, renderBufferAround]);
+  }, [uri]);
 
   useEffect(() => {
     renderBufferAround(currentPage);
@@ -133,8 +165,6 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
   const goToPage = useCallback(
     (page: number) => {
       const nextPage = Math.max(1, Math.min(page, totalPages));
-
-      console.log(`Going to page ${nextPage} of ${totalPages}`);
 
       setCurrentPage(nextPage);
       pagerRef.current?.setPage(nextPage - 1);
@@ -148,7 +178,24 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: 'black' }}>
+    <View style={{ flex: 1, backgroundColor: 'white' }}>
+      <View
+        style={{
+          position: 'absolute',
+          top: 50,
+          left: 20,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          padding: 6,
+        }}
+      >
+        <Text style={{ color: 'white' }}>
+          Page {currentPage}/{totalPages}
+        </Text>
+
+        <Text style={{ color: 'white' }}>
+          Cached: {Object.keys(pageImages).length}
+        </Text>
+      </View>
       <View
         style={{
           position: 'absolute',
@@ -180,17 +227,15 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
           title="Go"
           onPress={() => {
             const page = Number(jumpPage);
-
-            if (Number.isFinite(page)) {
-              goToPage(page);
-            }
+            if (Number.isFinite(page)) goToPage(page);
           }}
         />
       </View>
+
       <PagerView
         ref={pagerRef}
         style={{ flex: 1 }}
-        initialPage={currentPage - 1}
+        initialPage={0}
         offscreenPageLimit={5}
         onPageSelected={(event) => {
           const selectedPage = event.nativeEvent.position + 1;
@@ -210,7 +255,7 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
               key={pageNumber}
               style={{
                 flex: 1,
-                backgroundColor: 'black',
+                backgroundColor: 'white',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -225,7 +270,19 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
                   }}
                 />
               ) : (
-                <ActivityIndicator />
+                <View
+                  style={{
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <ActivityIndicator />
+
+                  <Text style={{ color: 'black' }}>
+                    Rendering page {pageNumber}…
+                  </Text>
+                </View>
               )}
             </View>
           );
@@ -241,7 +298,7 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
           width: '10%',
           zIndex: 999,
           elevation: 999,
-          backgroundColor: 'rgba(255, 0, 0, 0.12)',
+          // backgroundColor: 'rgba(255, 0, 0, 0.12)',
         }}
         onPress={() => goToPage(currentPage - 1)}
       />
@@ -255,7 +312,7 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
           width: '10%',
           zIndex: 999,
           elevation: 999,
-          backgroundColor: 'rgba(255, 0, 0, 0.12)',
+          // backgroundColor: 'rgba(255, 0, 0, 0.12)',
         }}
         onPress={() => goToPage(currentPage + 1)}
       />
