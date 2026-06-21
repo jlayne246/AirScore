@@ -931,7 +931,7 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
               placeholder={`1-${totalPages}`}
               placeholderTextColor="#999"
               style={{
-                width: 140,
+                width: 60,
                 borderWidth: 1,
                 borderColor: '#ccc',
                 borderRadius: 8,
@@ -941,6 +941,16 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
                 color: '#111',
               }}
             />
+            <Text
+              style={{
+                color: '#666',
+                fontSize: 16,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+            >
+              / {totalPages}
+            </Text>
 
             <TouchableOpacity
               onPress={() => {
