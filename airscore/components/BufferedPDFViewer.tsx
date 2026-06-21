@@ -51,7 +51,7 @@ interface BufferedPDFViewerProps {
 const ACCENT_COLOR = '#2563EB';
 
 const THUMB_COLUMNS = 6;
-const THUMB_ROW_HEIGHT = 180;
+const THUMB_ROW_HEIGHT = 170;
 
 type DisplayMode =
   | "single"
@@ -127,6 +127,7 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
   const [jumpPage, setJumpPage] = useState('');
   const [displayMode, setDisplayMode] = useState<DisplayMode>("single");
   const [chromeVisible, setChromeVisible] = useState(false);
+  const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
   const chromeHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [readerReady, setReaderReady] = useState(false);
   const [initialPagerIndex, setInitialPagerIndex] = useState(0);
@@ -227,8 +228,8 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
         const result = await AirScorePdfRenderer.renderPage({
           pdfPath: uri,
           page,
-          width: 300,
-          height: 420,
+          width: 180,
+          height: 252,
         });
 
         thumbnailImagesRef.current = {
@@ -385,10 +386,13 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
     }
 
     chromeHideTimer.current = setTimeout(() => {
-      setChromeVisible(false);
+      if (!overflowMenuOpen) {
+        setChromeVisible(false);
+      }
+
       chromeHideTimer.current = null;
-    }, 3500);
-  }, []);
+    }, 5000);
+  }, [overflowMenuOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -524,7 +528,7 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
 
   const centerTapGesture = Gesture.Tap()
   .maxDuration(220)
-  .maxDistance(10)
+  .maxDistance(6)
   .onEnd((_event, success) => {
     if (success) {
       runOnJS(toggleChrome)();
@@ -569,8 +573,8 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
 
   const renderVisibleThumbnailWindow = useCallback(
     (page: number) => {
-      const start = Math.max(1, page - 6);
-      const end = Math.min(totalPages, page + 12);
+      const start = Math.max(1, page - 2);
+      const end = Math.min(totalPages, page + 6);
 
       for (let p = start; p <= end; p++) {
         renderThumbnail(p);
@@ -587,6 +591,8 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
     },
     [renderVisibleThumbnailWindow]
   );
+
+  // console.log("thumbnailPages:", thumbnailPages.length, "totalPages:", totalPages);
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
@@ -635,7 +641,21 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
               </Text>
             </View>
 
-            <Menu>
+            <Menu
+              onOpen={() => {
+                setOverflowMenuOpen(true);
+                setChromeVisible(true);
+
+                if (chromeHideTimer.current) {
+                  clearTimeout(chromeHideTimer.current);
+                  chromeHideTimer.current = null;
+                }
+              }}
+              onClose={() => {
+                setOverflowMenuOpen(false);
+                showChromeTemporarily();
+              }}
+            >
               <MenuTrigger>
                 <Ionicons name="ellipsis-vertical" size={28} color={ACCENT_COLOR} />
               </MenuTrigger>
@@ -945,34 +965,21 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
             </TouchableOpacity>
           </View>
 
+          
+
           <FlatList
             data={thumbnailPages}
             keyExtractor={(page) => page.toString()}
             numColumns={THUMB_COLUMNS}
-            getItemLayout={(_, index) => {
-              const rowIndex = Math.floor(index / THUMB_COLUMNS);
-
-              return {
-                length: THUMB_ROW_HEIGHT,
-                offset: THUMB_ROW_HEIGHT * rowIndex,
-                index,
-              };
-            }}
             onLayout={() => {
+              const rowIndex = Math.floor((currentPage - 1) / THUMB_COLUMNS);
+
               requestAnimationFrame(() => {
-                thumbnailListRef.current?.scrollToIndex({
-                  index: initialThumbnailIndex,
+                thumbnailListRef.current?.scrollToOffset({
+                  offset: rowIndex * THUMB_ROW_HEIGHT,
                   animated: false,
                 });
               });
-            }}
-            onScrollToIndexFailed={(info) => {
-              setTimeout(() => {
-                thumbnailListRef.current?.scrollToIndex({
-                  index: Math.max(0, info.index),
-                  animated: false,
-                });
-              }, 100);
             }}
             ref={thumbnailListRef}
             onViewableItemsChanged={handleThumbnailViewableItemsChanged}
@@ -1303,11 +1310,12 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
             collapsable={false}
             style={{
               position: 'absolute',
-              left: '15%',
-              right: '15%',
-              top: 64,
-              bottom: 84,
+              left: '35%',
+              right: '35%',
+              top: '35%',
+              bottom: '35%',
               zIndex: 900,
+              // backgroundColor: 'red',
             }}
           />
         </GestureDetector>
@@ -1323,7 +1331,7 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
               left: 0,
               top: 0,
               bottom: 0,
-              width: '10%',
+              width: '7%',
               zIndex: 999,
               elevation: 999,
               // backgroundColor: 'rgba(255, 0, 0, 0.12)',
@@ -1341,7 +1349,7 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
               right: 0,
               top: 0,
               bottom: 0,
-              width: '10%',
+              width: '7%',
               zIndex: 999,
               elevation: 999,
               // backgroundColor: 'rgba(255, 0, 0, 0.12)',
