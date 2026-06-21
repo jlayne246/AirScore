@@ -1320,10 +1320,10 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
             collapsable={false}
             style={{
               position: 'absolute',
-              left: '35%',
-              right: '35%',
-              top: '35%',
-              bottom: '35%',
+              left: '25%',
+              right: '25%',
+              top: '25%',
+              bottom: '25%',
               zIndex: 900,
               // backgroundColor: 'red',
             }}
