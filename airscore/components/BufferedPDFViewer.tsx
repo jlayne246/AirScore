@@ -3,9 +3,12 @@ import { useNavigation } from '@react-navigation/native';
 import { runOnJS } from 'react-native-reanimated';
 import {
   ActivityIndicator,
+  Alert,
   Button,
+  FlatList,
   Image,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -25,12 +28,30 @@ import {
 } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
+import {
+  addBookmark,
+  removeBookmark,
+  isBookmarked,
+  getBookmarksForScore,
+} from '../utils/database';
+import { Ionicons } from '@expo/vector-icons';
+import {
+  Bookmark,
+} from '../types';
+import { activateKeepAwakeAsync } from 'expo-keep-awake';
 
 interface BufferedPDFViewerProps {
   uri: string;
+  musicId?: number;
+  title?: string;
+  composer?: string;
+  setlistLabel?: string;
 }
 
 const ACCENT_COLOR = '#2563EB';
+
+const THUMB_COLUMNS = 6;
+const THUMB_ROW_HEIGHT = 180;
 
 type DisplayMode =
   | "single"
@@ -87,14 +108,21 @@ function RenderedPage({
     );
   }
 
-const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
+const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: BufferedPDFViewerProps) => {
   const pagerRef = useRef<PagerView>(null);
   const renderingPages = useRef<Set<number>>(new Set());
   const pageImagesRef = useRef<Record<number, string>>({});
+  const renderingThumbnails = useRef<Set<number>>(new Set());
+  const thumbnailBatchCancelled = useRef(false);
+  const thumbnailListRef = useRef<FlatList<number>>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageImages, setPageImages] = useState<Record<number, string>>({});
+  const [thumbnailImages, setThumbnailImages] =
+    useState<Record<number, string>>({});
+  const thumbnailImagesRef =
+    useRef<Record<number, string>>({});
   const [jumpOverlayVisible, setJumpOverlayVisible] = useState(false);
   const [jumpPage, setJumpPage] = useState('');
   const [displayMode, setDisplayMode] = useState<DisplayMode>("single");
@@ -102,6 +130,14 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
   const chromeHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [readerReady, setReaderReady] = useState(false);
   const [initialPagerIndex, setInitialPagerIndex] = useState(0);
+  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [bookmarksOverlayVisible, setBookmarksOverlayVisible] = useState(false);
+  const [bookmarkLabel, setBookmarkLabel] =
+    useState('');
+
+  const [labelOverlayVisible, setLabelOverlayVisible] =
+    useState(false);
 
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
@@ -122,6 +158,14 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
       ? 1 + Math.ceil((totalPages - 1) / 2)
       : Math.ceil(totalPages / 2)
     : totalPages;
+
+  const thumbnailPages = Array.from(
+    { length: totalPages },
+    (_, index) => index + 1
+  );
+
+  const initialThumbnailIndex =
+  Math.floor((currentPage - 1) / THUMB_COLUMNS) * THUMB_COLUMNS;
 
   // const buffer = getBuffer(effectiveDisplayMode);
 
@@ -171,6 +215,81 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
     [uri, totalPages]
   );
 
+  const renderThumbnail = useCallback(
+    async (page: number) => {
+      if (page < 1 || page > totalPages) return;
+      if (thumbnailImagesRef.current[page]) return;
+      if (renderingThumbnails.current.has(page)) return;
+
+      renderingThumbnails.current.add(page);
+
+      try {
+        const result = await AirScorePdfRenderer.renderPage({
+          pdfPath: uri,
+          page,
+          width: 300,
+          height: 420,
+        });
+
+        thumbnailImagesRef.current = {
+          ...thumbnailImagesRef.current,
+          [page]: result.uri,
+        };
+
+        setThumbnailImages(thumbnailImagesRef.current);
+      } catch (error) {
+        console.error(`Failed to render thumbnail ${page}`, error);
+      } finally {
+        renderingThumbnails.current.delete(page);
+      }
+    },
+    [uri, totalPages]
+  );
+
+//   useEffect(() => {
+//   if (!jumpOverlayVisible) return;
+
+//   thumbnailBatchCancelled.current = false;
+
+//   const renderProgressively = async () => {
+//     const pages: number[] = [];
+
+//     // Prioritize current area first.
+//     const startNearCurrent = Math.max(1, currentPage - 6);
+//     const endNearCurrent = Math.min(totalPages, currentPage + 12);
+
+//     for (let p = startNearCurrent; p <= endNearCurrent; p++) {
+//       pages.push(p);
+//     }
+
+//     // Then render the rest from the beginning.
+//     for (let p = 1; p <= totalPages; p++) {
+//       if (!pages.includes(p)) {
+//         pages.push(p);
+//       }
+//     }
+
+//     const batchSize = 6;
+
+//     for (let i = 0; i < pages.length; i += batchSize) {
+//       if (thumbnailBatchCancelled.current) return;
+
+//       const batch = pages.slice(i, i + batchSize);
+
+//       await Promise.all(batch.map((p) => renderThumbnail(p)));
+
+//       // Let UI breathe between batches.
+//       await new Promise((resolve) => setTimeout(resolve, 50));
+//     }
+//   };
+
+//   renderProgressively();
+
+//   return () => {
+//     thumbnailBatchCancelled.current = true;
+//   };
+// }, [jumpOverlayVisible, totalPages, currentPage, renderThumbnail]);
+
   const renderBufferAround = useCallback(
     (page: number) => {
       const buffer = getBuffer(effectiveDisplayMode);
@@ -211,6 +330,30 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
   // );
 
   useEffect(() => {
+    const checkBookmark = async () => {
+      if (!musicId) return;
+
+      const exists = await isBookmarked(musicId, currentPage);
+      setBookmarked(exists);
+    };
+
+    checkBookmark();
+  }, [musicId, currentPage]);
+
+  const loadBookmarks = useCallback(async () => {
+    if (!musicId) return;
+
+    const results =
+      await getBookmarksForScore(musicId);
+
+    setBookmarks(results);
+  }, [musicId]);
+
+  useEffect(() => {
+    loadBookmarks();
+  }, [loadBookmarks]);
+
+  useEffect(() => {
     const loadDisplayMode = async () => {
       const saved = await AsyncStorage.getItem(
         "reader:displayMode"
@@ -233,6 +376,19 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
       displayMode
     );
   }, [displayMode]);
+
+  const showChromeTemporarily = useCallback(() => {
+    setChromeVisible(true);
+
+    if (chromeHideTimer.current) {
+      clearTimeout(chromeHideTimer.current);
+    }
+
+    chromeHideTimer.current = setTimeout(() => {
+      setChromeVisible(false);
+      chromeHideTimer.current = null;
+    }, 3500);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -262,6 +418,8 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
       setCurrentPage(safePage);
       setInitialPagerIndex(getPagerIndexForPage(safePage));
       setReaderReady(true);
+
+      showChromeTemporarily();
 
       requestAnimationFrame(() => {
         pagerRef.current?.setPageWithoutAnimation(safePage - 1);
@@ -301,11 +459,31 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
 
       AsyncStorage.setItem(`pdf:lastPage:${uri}`, nextPage.toString());
 
+      showChromeTemporarily();
       renderPage(nextPage);
       renderBufferAround(nextPage);
     },
     [totalPages, uri, renderPage, renderBufferAround, coverOffset, effectiveDisplayMode]
   );
+
+  const toggleBookmark = useCallback(async () => {
+    if (!musicId) return;
+
+    if (bookmarked) {
+      await removeBookmark(musicId, currentPage);
+      setBookmarked(false);
+    } else {
+      await addBookmark(musicId, currentPage);
+      setBookmarked(true);
+    }
+
+    await loadBookmarks();
+  }, [
+    musicId,
+    currentPage,
+    bookmarked,
+    loadBookmarks,
+  ]);
 
   const hideChrome = useCallback(() => {
     if (chromeHideTimer.current) {
@@ -314,19 +492,6 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
     }
 
     setChromeVisible(false);
-  }, []);
-
-  const showChromeTemporarily = useCallback(() => {
-    setChromeVisible(true);
-
-    if (chromeHideTimer.current) {
-      clearTimeout(chromeHideTimer.current);
-    }
-
-    chromeHideTimer.current = setTimeout(() => {
-      setChromeVisible(false);
-      chromeHideTimer.current = null;
-    }, 3500);
   }, []);
 
   const toggleChrome = useCallback(() => {
@@ -402,6 +567,27 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
   //   )
   // );
 
+  const renderVisibleThumbnailWindow = useCallback(
+    (page: number) => {
+      const start = Math.max(1, page - 6);
+      const end = Math.min(totalPages, page + 12);
+
+      for (let p = start; p <= end; p++) {
+        renderThumbnail(p);
+      }
+    },
+    [totalPages, renderThumbnail]
+  );
+
+  const handleThumbnailViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: Array<{ item: number }> }) => {
+      viewableItems.forEach(({ item }) => {
+        renderVisibleThumbnailWindow(item);
+      });
+    },
+    [renderVisibleThumbnailWindow]
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
       {chromeVisible && (
@@ -428,24 +614,30 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
             }}
           >
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>
-                ‹
-              </Text>
+              <Ionicons name="chevron-back" size={28} color={ACCENT_COLOR} />
             </TouchableOpacity>
 
             <View style={{ alignItems: 'center', flex: 1 }}>
               <Text style={{ fontWeight: '700', fontSize: 22, color: ACCENT_COLOR }}>
-                Amazing Grace
+                {title ?? "Untitled"}
               </Text>
 
               <Text style={{ fontSize: 16, color: '#666', marginTop: 2 }}>
-                Sunday Eucharist · 2 of 6 · Page {currentPage} of {totalPages}
+                {composer && (
+                  <Text style={{ fontWeight: 'bold' }}>{composer} </Text>
+                )}
+                {setlistLabel && (
+                  <Text>
+                    · {setlistLabel} 
+                  </Text>
+                )}
+                · Page {currentPage} of {totalPages}
               </Text>
             </View>
 
             <Menu>
               <MenuTrigger>
-                <Text style={{ fontSize: 28, paddingHorizontal: 8, color: ACCENT_COLOR  }}>⋮</Text>
+                <Ionicons name="ellipsis-vertical" size={28} color={ACCENT_COLOR} />
               </MenuTrigger>
 
               <MenuOptions
@@ -617,7 +809,7 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
             style={{ alignItems: 'center' }}
             onPress={() => goToPage(currentPage - pageStep)}
           >
-            <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>≪</Text>
+            <Ionicons name="arrow-back" size={28} color={ACCENT_COLOR} />
             <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Previous</Text>
           </TouchableOpacity>
 
@@ -628,7 +820,7 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
               setJumpOverlayVisible(true);
             }}
           >
-            <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>▦</Text>
+            <Ionicons name="grid-outline" size={28} color={ACCENT_COLOR} />
             <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Jump</Text>
           </TouchableOpacity>
 
@@ -636,29 +828,236 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
             style={{ alignItems: 'center' }}
             onPress={() => console.log('Annotate')}
           >
-            <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>✎</Text>
+            <Ionicons name="create-outline" size={28} color={ACCENT_COLOR} />
             <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Annotate</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={{ alignItems: 'center' }}
-            onPress={() => console.log('Bookmark')}
+            onPress={() => {
+              loadBookmarks();
+              setBookmarksOverlayVisible(true);
+            }}
           >
-            <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>♡</Text>
-            <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Bookmark</Text>
+            <Ionicons
+              name="bookmarks-outline"
+              size={28}
+              color={ACCENT_COLOR}
+            />
+            <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Bookmarks</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={{ alignItems: 'center' }}
             onPress={() => goToPage(currentPage + pageStep)}
           >
-            <Text style={{ fontSize: 28, color: ACCENT_COLOR }}>≫</Text>
+            <Ionicons name="arrow-forward" size={28} color={ACCENT_COLOR} />
             <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Next</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {jumpOverlayVisible && (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            zIndex: 2200,
+            backgroundColor: 'rgba(255,255,255,0.98)',
+            padding: 16,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              // marginTop: 12,
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ fontSize: 22, fontWeight: '700', color: ACCENT_COLOR }}>
+              Jump to Page
+            </Text>
+
+            <TouchableOpacity onPress={() => {
+                setJumpOverlayVisible(false)
+                showChromeTemporarily();
+              }}>
+              <Ionicons name="close" size={28} color={ACCENT_COLOR} />
+            </TouchableOpacity>
+          </View>
+
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              alignSelf: 'flex-end',
+              gap: 12,
+              marginBottom: 16,
+              paddingRight: 24,
+            }}
+          >
+            <Text style={{ fontSize: 16, color: '#666' }}>
+              Page
+            </Text>
+            <TextInput
+              value={jumpPage}
+              onChangeText={setJumpPage}
+              keyboardType="number-pad"
+              placeholder={`1-${totalPages}`}
+              placeholderTextColor="#999"
+              style={{
+                width: 140,
+                borderWidth: 1,
+                borderColor: '#ccc',
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                fontSize: 18,
+                color: '#111',
+              }}
+            />
+
+            <TouchableOpacity
+              onPress={() => {
+                const page = Number(jumpPage);
+
+                if (!Number.isFinite(page)) return;
+
+                goToPage(page);
+                setJumpOverlayVisible(false);
+                showChromeTemporarily();
+              }}
+              style={{
+                backgroundColor: ACCENT_COLOR,
+                paddingHorizontal: 18,
+                paddingVertical: 10,
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>
+                Go
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={thumbnailPages}
+            keyExtractor={(page) => page.toString()}
+            numColumns={THUMB_COLUMNS}
+            getItemLayout={(_, index) => {
+              const rowIndex = Math.floor(index / THUMB_COLUMNS);
+
+              return {
+                length: THUMB_ROW_HEIGHT,
+                offset: THUMB_ROW_HEIGHT * rowIndex,
+                index,
+              };
+            }}
+            onLayout={() => {
+              requestAnimationFrame(() => {
+                thumbnailListRef.current?.scrollToIndex({
+                  index: initialThumbnailIndex,
+                  animated: false,
+                });
+              });
+            }}
+            onScrollToIndexFailed={(info) => {
+              setTimeout(() => {
+                thumbnailListRef.current?.scrollToIndex({
+                  index: Math.max(0, info.index),
+                  animated: false,
+                });
+              }, 100);
+            }}
+            ref={thumbnailListRef}
+            onViewableItemsChanged={handleThumbnailViewableItemsChanged}
+            viewabilityConfig={{
+              itemVisiblePercentThreshold: 10,
+            }}
+            renderItem={({ item: pageNumber }) => {
+              const pageUri =
+                thumbnailImages[pageNumber] ?? pageImages[pageNumber];
+
+              const bookmarkForPage = bookmarks.find(
+                (bookmark) => bookmark.page_number === pageNumber
+              );
+
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    goToPage(pageNumber);
+                    setJumpOverlayVisible(false);
+                    showChromeTemporarily();
+                  }}
+                  style={{
+                    width: 120,
+                    alignItems: 'center',
+                    marginBottom: 18,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 100,
+                      height: 140,
+                      borderWidth: currentPage === pageNumber ? 3 : 1,
+                      borderColor:
+                        currentPage === pageNumber ? ACCENT_COLOR : '#ddd',
+                      backgroundColor: '#f5f5f5',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {pageUri ? (
+                      <Image
+                        source={{ uri: pageUri }}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          resizeMode: 'contain',
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <ActivityIndicator />
+                        <Text style={{ color: '#999', marginTop: 4, fontSize: 11 }}>
+                          Loading
+                        </Text>
+                      </>
+                    )}
+
+                    {bookmarkForPage && (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          top: 4,
+                          right: 4,
+                          backgroundColor: 'white',
+                          borderRadius: 10,
+                          padding: 2,
+                        }}
+                      >
+                        <Ionicons name="bookmark" size={16} color={ACCENT_COLOR} />
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={{ marginTop: 4, fontSize: 12 }}>
+                    {pageNumber}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
+      )}
+
+      {bookmarksOverlayVisible && (
         <View
           style={{
             position: 'absolute',
@@ -674,34 +1073,163 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
         >
           <View
             style={{
-              width: 360,
+              width: 420,
+              maxHeight: '70%',
               backgroundColor: 'white',
               borderRadius: 16,
               padding: 20,
             }}
           >
-            <Text style={{ fontSize: 20, fontWeight: '700', marginBottom: 12, color: ACCENT_COLOR  }}>
-              Jump to Page
+            <Text style={{ fontSize: 22, fontWeight: '700', marginBottom: 12 }}>
+              Bookmarks
             </Text>
 
-            <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>
-              Enter a page from 1 to {totalPages}
+            <TouchableOpacity
+              onPress={() => {
+                if (bookmarked) {
+                  toggleBookmark();
+                } else {
+                  setBookmarkLabel('');
+                  setLabelOverlayVisible(true);
+                }
+              }}
+              style={{
+                padding: 12,
+                backgroundColor: '#f5f5f5',
+                borderRadius: 8,
+                marginBottom: 16,
+              }}
+            >
+              <Text style={{ fontSize: 16, color: '#2563EB', fontWeight: '600' }}>
+                {bookmarked
+                  ? `Remove bookmark from page ${currentPage}`
+                  : `Bookmark page ${currentPage}`}
+              </Text>
+            </TouchableOpacity>
+
+            <ScrollView style={{ maxHeight: 360 }}>
+              {bookmarks.length === 0 ? (
+                <Text style={{ color: '#666', textAlign: 'center', padding: 16 }}>
+                  No bookmarks yet
+                </Text>
+              ) : (
+                bookmarks.map((bookmark) => (
+                  <TouchableOpacity
+                    key={bookmark.id}
+                    onPress={() => {
+                      goToPage(bookmark.page_number);
+                      setBookmarksOverlayVisible(false);
+                      showChromeTemporarily();
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingVertical: 12,
+                      borderBottomWidth: 1,
+                      borderBottomColor: '#eee',
+                    }}
+                  >
+                    <View>
+                      {bookmark.label ? (
+                        <Text style={{ fontSize: 16, fontWeight: '600' }}>
+                          {bookmark.label}
+                        </Text>
+                      ) : (
+                        <Text style={{ fontSize: 16, fontWeight: '600'  }}>
+                          No label
+                        </Text>
+                      )}
+
+                      <Text style={{ color: '#666', marginTop: 2  }}>
+                        Page {bookmark.page_number}
+                      </Text>
+                    </View>
+
+                    <Ionicons name="bookmark" size={22} color="#2563EB" />
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+
+            <View
+              style={{
+                marginTop: 16,
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => setBookmarksOverlayVisible(false)}
+                style={{
+                  padding: 10,
+                  paddingHorizontal: 18,
+                  backgroundColor: '#2563EB',
+                  borderRadius: 8,
+                }}
+              >
+                <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {labelOverlayVisible && (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            zIndex: 2100,
+            backgroundColor: 'rgba(0,0,0,0.35)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <View
+            style={{
+              width: 400,
+              backgroundColor: 'white',
+              borderRadius: 16,
+              padding: 20,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 22,
+                fontWeight: '700',
+                marginBottom: 12,
+              }}
+            >
+              Add Bookmark
+            </Text>
+
+            <Text
+              style={{
+                color: '#666',
+                marginBottom: 16,
+              }}
+            >
+              Page {currentPage}
             </Text>
 
             <TextInput
-              value={jumpPage}
-              onChangeText={setJumpPage}
-              keyboardType="number-pad"
+              value={bookmarkLabel}
+              onChangeText={setBookmarkLabel}
+              placeholder="Label (optional)"
               autoFocus
-              selectTextOnFocus
               style={{
                 borderWidth: 1,
                 borderColor: '#ccc',
                 borderRadius: 8,
                 paddingHorizontal: 12,
                 paddingVertical: 10,
-                fontSize: 20,
-                marginBottom: 16,
+                fontSize: 16,
               }}
             />
 
@@ -710,34 +1238,58 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
                 flexDirection: 'row',
                 justifyContent: 'flex-end',
                 gap: 12,
+                marginTop: 20,
               }}
             >
               <TouchableOpacity
-                onPress={() => setJumpOverlayVisible(false)}
-                style={{ padding: 10 }}
-              >
-                <Text style={{ fontSize: 16 }}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  const page = Number(jumpPage);
-
-                  if (Number.isFinite(page)) {
-                    goToPage(page);
-                    setJumpOverlayVisible(false);
-                    showChromeTemporarily();
-                  }
-                }}
+                onPress={() =>
+                  setLabelOverlayVisible(false)
+                }
                 style={{
                   padding: 10,
                   paddingHorizontal: 18,
-                  backgroundColor: 'dodgerblue',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 16,
+                  }}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={async () => {
+                  if (!musicId) return;
+
+                  await addBookmark(
+                    musicId,
+                    currentPage,
+                    bookmarkLabel.trim()
+                  );
+
+                  await loadBookmarks();
+
+                  setBookmarked(true);
+                  setLabelOverlayVisible(false);
+
+                  showChromeTemporarily();
+                }}
+                style={{
+                  backgroundColor: '#2563EB',
+                  paddingHorizontal: 18,
+                  paddingVertical: 10,
                   borderRadius: 8,
                 }}
               >
-                <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>
-                  Go
+                <Text
+                  style={{
+                    color: 'white',
+                    fontWeight: '700',
+                  }}
+                >
+                  Save
                 </Text>
               </TouchableOpacity>
             </View>
@@ -745,53 +1297,62 @@ const BufferedPDFViewer = ({ uri }: BufferedPDFViewerProps) => {
         </View>
       )}
 
-      <GestureDetector gesture={centerTapGesture}>
-        <View
-          collapsable={false}
-          style={{
-            position: 'absolute',
-            left: '15%',
-            right: '15%',
-            top: 64,
-            bottom: 84,
-            zIndex: 900,
-          }}
-        />
-      </GestureDetector>
+      {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && (
+        <GestureDetector gesture={centerTapGesture}>
+          <View
+            collapsable={false}
+            style={{
+              position: 'absolute',
+              left: '15%',
+              right: '15%',
+              top: 64,
+              bottom: 84,
+              zIndex: 900,
+            }}
+          />
+        </GestureDetector>
+      )}
 
-      <Pressable
-        style={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: '10%',
-          zIndex: 999,
-          elevation: 999,
-          // backgroundColor: 'rgba(255, 0, 0, 0.12)',
-        }}
-        onPress={() => {
-          goToPage(currentPage - pageStep);
-          // showChromeTemporarily();
-        }}
-      />
+      {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && (
+        <>
+          {/* left Pressable */}
 
-      <Pressable
-        style={{
-          position: 'absolute',
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: '10%',
-          zIndex: 999,
-          elevation: 999,
-          // backgroundColor: 'rgba(255, 0, 0, 0.12)',
-        }}
-        onPress={() => {
-          goToPage(currentPage + pageStep);
-          // showChromeTemporarily();
-        }}
-      />
+           <Pressable
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: '10%',
+              zIndex: 999,
+              elevation: 999,
+              // backgroundColor: 'rgba(255, 0, 0, 0.12)',
+            }}
+            onPress={() => {
+              goToPage(currentPage - pageStep);
+              // showChromeTemporarily();
+            }}
+          />
+
+          {/* right Pressable */}
+          <Pressable
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: '10%',
+              zIndex: 999,
+              elevation: 999,
+              // backgroundColor: 'rgba(255, 0, 0, 0.12)',
+            }}
+            onPress={() => {
+              goToPage(currentPage + pageStep);
+              // showChromeTemporarily();
+            }}
+          />
+        </>
+      )}
     </View>
   );
 };

@@ -115,11 +115,28 @@ export const initDB = async (): Promise<void> => {
         );
       `);
 
+      console.log("DB init: creating music_bookmarks table");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS music_bookmarks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          music_id INTEGER NOT NULL,
+          page_number INTEGER NOT NULL,
+          label TEXT,
+          created_at TEXT NOT NULL,
+
+          FOREIGN KEY (music_id)
+            REFERENCES music(id)
+            ON DELETE CASCADE
+        );
+      `);
+
       console.log("DB init: creating duplicate metadata index");
       await db.execAsync(`
         CREATE UNIQUE INDEX IF NOT EXISTS idx_music_metadata_title_composer
         ON music_metadata (title, composer);
       `);
+
+      
 
       console.log("Database initialized");
     } catch (error) {
@@ -912,5 +929,87 @@ export const getSetlistsForMusic = async (musicId: number): Promise<string[]> =>
     } catch (error) {
         console.error("Error getting setlists for music:", error);
         return ["Ungrouped"]; // Return default group on error
+    }
+};
+
+// BOOKMARK HELPERS
+
+export const addBookmark = async (
+    musicId: number,
+    pageNumber: number,
+    label?: string
+): Promise<void> => {
+    const db = await openDatabase();
+
+    try {
+        await db.runAsync(
+            `
+            INSERT INTO music_bookmarks (music_id, page_number, label, created_at)
+            VALUES (?, ?, ?, ?)
+            `,
+            [musicId, pageNumber, label || null, new Date().toISOString()]
+        );
+    } catch (error) {
+        console.error("Error adding bookmark:", error);
+        throw error;
+    }
+}
+
+export const removeBookmark = async (musicId: number, pageNumber: number): Promise<void> => {
+    const db = await openDatabase();
+
+    try {
+        await db.runAsync(
+            `DELETE FROM music_bookmarks WHERE music_id = ? AND page_number = ?`,
+            [musicId, pageNumber]
+        );
+    } catch (error) {
+        console.error("Error removing bookmark:", error);
+        throw error;
+    }
+}
+
+export const getBookmarksForScore = async (musicId: number): Promise<Array<{ id: number, page_number: number, label?: string }>> => {
+    const db = await openDatabase();
+
+    try {
+        const bookmarks = await db.getAllAsync<{
+            id: number;
+            page_number: number;
+            label?: string;
+        }>(
+            `
+            SELECT id, page_number, label
+            FROM music_bookmarks
+            WHERE music_id = ?
+            ORDER BY created_at DESC
+            `,
+            [musicId]
+        );
+
+        return bookmarks;
+    } catch (error) {
+        console.error("Error getting bookmarks for music:", error);
+        throw error;
+    }
+};
+
+export const isBookmarked = async (musicId: number, pageNumber: number): Promise<boolean> => {
+    const db = await openDatabase();
+
+    try {
+        const bookmark = await db.getFirstAsync<{ id: number }>(
+            `
+            SELECT id
+            FROM music_bookmarks
+            WHERE music_id = ? AND page_number = ?
+            `,
+            [musicId, pageNumber]
+        );
+
+        return !!bookmark;
+    } catch (error) {
+        console.error("Error checking if music is bookmarked:", error);
+        throw error;
     }
 };

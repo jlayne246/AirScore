@@ -61,3 +61,9 @@ export interface MetadataFormData {
   page_count?: number;
   labels?: string[];
 }
+
+export type Bookmark = {
+  id: number;
+  page_number: number;
+  label?: string;
+};
