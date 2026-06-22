@@ -10,6 +10,7 @@ import BufferedPDFViewer from '../components/BufferedPDFViewer';
 import { RouteProp } from '@react-navigation/native';
 import { MusicMetadataWithLabels, ReaderContext, RootStackParamList } from '../types';
 import { getMusicWithAllData, getMusicWithMetadata, markMusicAsOpened } from '../utils/database';
+import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
 
 type ReaderScreenProps = {
     route: RouteProp<RootStackParamList, 'Reader'>;
@@ -18,7 +19,7 @@ type ReaderScreenProps = {
 
 const ReaderScreen = ({ route }: ReaderScreenProps) => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { uri, musicId, context } = route.params as { uri: string; musicId?: number, context: ReaderContext };
+    const { uri, musicId, context, startPage } = route.params as { uri: string; musicId?: number, context: ReaderContext, startPage?: number };
 
     const [title, setTitle] = useState("Untitled");
     const [composer, setComposer] = useState("");
@@ -39,6 +40,37 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
     useEffect(() => {
         loadMetadata();
     }, [musicId]);
+
+    const openSetlistScore = async (
+        nextIndex: number,
+        openAt: "first" | "last" = "first"
+    ) => {
+        if (!context?.musicIds?.length) return;
+        if (nextIndex < 0 || nextIndex >= context.musicIds.length) return;
+
+        const nextMusicId = context.musicIds[nextIndex];
+
+        const allMusic = await getMusicWithAllData();
+        const fullItem = allMusic.find(item => item.id === nextMusicId);
+
+        if (!fullItem?.uri) return;
+
+        let startPage = 1;
+
+        if (openAt === "last") {
+            startPage = await AirScorePdfRenderer.getPageCount(fullItem.uri);
+        }
+
+        navigation.replace("Reader", {
+            uri: fullItem.uri,
+            musicId: nextMusicId,
+            startPage,
+            context: {
+            ...context,
+            currentIndex: nextIndex + 1,
+            },
+        });
+    };
 
     if (!uri) {
         return <Text>No PDF selected.</Text>;
@@ -78,7 +110,23 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
             onMetadataUpdated={async () => {
                 await loadMetadata();
             }}
+            onPreviousScore={() =>
+                openSetlistScore(context.currentIndex - 2, "first")
+            }
+
+            onNextScore={() =>
+                openSetlistScore(context.currentIndex, "first")
+            }
+
+            onPreviousScoreFromPageTurn={() =>
+                openSetlistScore(context.currentIndex - 2, "last")
+            }
+
+            onNextScoreFromPageTurn={() =>
+                openSetlistScore(context.currentIndex, "first")
+            }
             context={context}
+            initialPage={startPage}
         />
         </SafeAreaView>
     );

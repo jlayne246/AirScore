@@ -55,6 +55,13 @@ interface BufferedPDFViewerProps {
   context?: ReaderContext;
 
   onMetadataUpdated?: (formData: MetadataFormData) => void;
+
+  onPreviousScore?: () => void;
+  onNextScore?: () => void;
+  onPreviousScoreFromPageTurn?: () => void;
+  onNextScoreFromPageTurn?: () => void;
+
+  initialPage?: number;
 }
 
 const ACCENT_COLOR = '#2563EB';
@@ -204,7 +211,7 @@ function ActionRow({
   );
 }
 
-const BufferedPDFViewer = ({ uri, musicId, score, context, onMetadataUpdated }: BufferedPDFViewerProps) => {
+const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetadataUpdated, onNextScore, onPreviousScore, onNextScoreFromPageTurn, onPreviousScoreFromPageTurn }: BufferedPDFViewerProps) => {
   const pagerRef = useRef<PagerView>(null);
   const renderingPages = useRef<Set<number>>(new Set());
   const pageImagesRef = useRef<Record<number, string>>({});
@@ -268,6 +275,8 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, onMetadataUpdated }: 
   const initialThumbnailIndex =
   Math.floor((currentPage - 1) / THUMB_COLUMNS) * THUMB_COLUMNS;
 
+  console.log("BufferedPDFViewer onNextScore exists:", !!onNextScore);
+  console.log("BufferedPDFViewer context:", context);
   // const buffer = getBuffer(effectiveDisplayMode);
 
   const getPagerIndexForPage = useCallback(
@@ -391,7 +400,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, onMetadataUpdated }: 
 //   };
 // }, [jumpOverlayVisible, totalPages, currentPage, renderThumbnail]);
 
-console.log("Context, ", context)
+// console.log("Context, ", context)
 
   const renderBufferAround = useCallback(
     (page: number) => {
@@ -513,13 +522,19 @@ console.log("Context, ", context)
 
       setTotalPages(detectedTotal);
 
-      const saved = await AsyncStorage.getItem(`pdf:lastPage:${uri}`);
-      const savedPage = saved ? Number(saved) : 1;
+      let safePage = 1;
 
-      const safePage =
-        Number.isFinite(savedPage) && savedPage > 0
-          ? Math.min(savedPage, detectedTotal)
-          : 1;
+      if (initialPage) {
+        safePage = Math.min(initialPage, detectedTotal);
+      } else {
+        const saved = await AsyncStorage.getItem(`pdf:lastPage:${uri}`);
+        const savedPage = saved ? Number(saved) : 1;
+
+        safePage =
+          Number.isFinite(savedPage) && savedPage > 0
+            ? Math.min(savedPage, detectedTotal)
+            : 1;
+      }
 
       setCurrentPage(safePage);
       setInitialPagerIndex(getPagerIndexForPage(safePage));
@@ -743,8 +758,8 @@ console.log("Context, ", context)
                 ) : (
                   <Text style={{ fontWeight: 'bold' }}>{score.editor} </Text>
                 )}
-                {context?.currentSetlistName && (
-                  <Text>· {context.currentSetlistName} · {context.positionInSetlist} of {context.totalInSetlist}</Text>
+                {context?.setlistName && (
+                  <Text>· {context.setlistName} · {context.currentIndex} of {context.totalItems}</Text>
                 )}
                 · Page {currentPage} of {totalPages}
               </Text>
@@ -936,7 +951,8 @@ console.log("Context, ", context)
         >
           <TouchableOpacity
             style={{ alignItems: 'center' }}
-            onPress={() => goToPage(currentPage - pageStep)}
+            // onPress={() => goToPage(currentPage - pageStep)}
+            onPress={onPreviousScore}
           >
             <Ionicons name="arrow-back" size={28} color={ACCENT_COLOR} />
             <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Previous</Text>
@@ -978,7 +994,8 @@ console.log("Context, ", context)
 
           <TouchableOpacity
             style={{ alignItems: 'center' }}
-            onPress={() => goToPage(currentPage + pageStep)}
+            // onPress={() => goToPage(currentPage + pageStep)}
+            onPress={onNextScore}
           >
             <Ionicons name="arrow-forward" size={28} color={ACCENT_COLOR} />
             <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Next</Text>
@@ -1091,10 +1108,10 @@ console.log("Context, ", context)
                   paddingVertical: 10,
                 }}
                 onPress={() => {
-                  if (context?.currentSetlistId && context?.currentSetlistName) {
+                  if (context?.setlistId && context?.setlistName) {
                     navigation.navigate('SetlistDetail', {
-                      setlistId: context?.currentSetlistId!,
-                      setlistName: context?.currentSetlistName!})
+                      setlistId: context?.setlistId!,
+                      setlistName: context?.setlistName!})
                     }
                   }
                 }
@@ -1102,11 +1119,11 @@ console.log("Context, ", context)
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Ionicons name="list-outline" size={20} color={ACCENT_COLOR} />
                   <Text style={{ fontSize: 15 }}>
-                    {context?.currentSetlistName || 'No setlist'}
+                    {context?.setlistName || 'No setlist'}
                   </Text>
                 </View>
 
-                <Text style={{ color: '#666' }}> {context?.currentSetlistId ? `${context?.positionInSetlist} of ${context?.totalInSetlist}` : ''} ›</Text>
+                <Text style={{ color: '#666' }}> {context?.setlistId ? `${context?.currentIndex} of ${context?.totalItems}` : ''} ›</Text>
               </TouchableOpacity>
             </InfoSection>
 
@@ -1676,8 +1693,15 @@ console.log("Context, ", context)
               // backgroundColor: 'rgba(255, 0, 0, 0.12)',
             }}
             onPress={() => {
-              goToPage(currentPage - pageStep);
-              // showChromeTemporarily();
+              const previousPage = currentPage - pageStep;
+
+              if (previousPage < 1) {
+                onPreviousScoreFromPageTurn?.();
+                return;
+              }
+
+              goToPage(previousPage);
+              showChromeTemporarily();
             }}
           />
 
@@ -1694,8 +1718,23 @@ console.log("Context, ", context)
               // backgroundColor: 'rgba(255, 0, 0, 0.12)',
             }}
             onPress={() => {
-              goToPage(currentPage + pageStep);
-              // showChromeTemporarily();
+              console.log("Right tap zone pressed", {
+                currentPage,
+                pageStep,
+                totalPages,
+                hasNextScore: !!onNextScore,
+              });
+
+              const nextPage = currentPage + pageStep;
+
+              if (nextPage > totalPages) {
+                console.log("Calling next score");
+                onNextScoreFromPageTurn?.();
+                return;
+              }
+
+              goToPage(nextPage);
+              showChromeTemporarily();
             }}
           />
         </>

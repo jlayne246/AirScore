@@ -8,7 +8,9 @@ export type RootStackParamList = {
       setlistName: string;
       currentIndex: number;
       totalItems: number;
+      musicIds: number[];
     };
+    startPage?: number;
   };
   Dashboard: undefined;
   Setlists: undefined;
@@ -125,8 +127,9 @@ export type ScoreMetadata = {
 };
 
 export type ReaderContext = {
-  currentSetlistId?: number;
-  currentSetlistName?: string;
-  positionInSetlist?: number;
-  totalInSetlist?: number;
+  setlistId: number;
+  setlistName: string;
+  currentIndex: number;
+  totalItems: number;
+  musicIds: number[];
 };
