@@ -949,14 +949,16 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
             paddingHorizontal: 12,
           }}
         >
-          <TouchableOpacity
-            style={{ alignItems: 'center' }}
-            // onPress={() => goToPage(currentPage - pageStep)}
-            onPress={onPreviousScore}
-          >
-            <Ionicons name="arrow-back" size={28} color={ACCENT_COLOR} />
-            <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Previous</Text>
-          </TouchableOpacity>
+          {context?.setlistId && (
+            <TouchableOpacity
+              style={{ alignItems: 'center' }}
+              // onPress={() => goToPage(currentPage - pageStep)}
+              onPress={onPreviousScore}
+            >
+              <Ionicons name="arrow-back" size={28} color={ACCENT_COLOR} />
+              <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Previous Score</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={{ alignItems: 'center' }}
@@ -992,14 +994,16 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
             <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Bookmarks</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={{ alignItems: 'center' }}
-            // onPress={() => goToPage(currentPage + pageStep)}
-            onPress={onNextScore}
-          >
-            <Ionicons name="arrow-forward" size={28} color={ACCENT_COLOR} />
-            <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Next</Text>
-          </TouchableOpacity>
+          {context?.setlistId && (
+            <TouchableOpacity
+              style={{ alignItems: 'center' }}
+              // onPress={() => goToPage(currentPage + pageStep)}
+              onPress={onNextScore}
+            >
+              <Ionicons name="arrow-forward" size={28} color={ACCENT_COLOR} />
+              <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Next Score</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
