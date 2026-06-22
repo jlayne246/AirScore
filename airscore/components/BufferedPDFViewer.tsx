@@ -37,16 +37,39 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import {
   Bookmark,
+  MetadataFormData,
 } from '../types';
 import { activateKeepAwakeAsync } from 'expo-keep-awake';
+import MetadataForm from './MetadataForm';
 
 interface BufferedPDFViewerProps {
   uri: string;
-  musicId?: number;
-  title?: string;
-  composer?: string;
-  setlistLabel?: string;
+  musicId: number;
+
+  score: ScoreMetadata;
+
+  context?: ReaderContext;
+
+  onMetadataUpdated?: (formData: MetadataFormData) => void;
 }
+
+type ScoreMetadata = {
+  title: string;
+  document_type: string;
+  composer?: string;
+  editor?: string;
+  arranger?: string;
+  publisher?: string;
+  notes?: string;
+  labels?: string[];
+};
+
+type ReaderContext = {
+  currentSetlistId?: number;
+  currentSetlistName?: string;
+  positionInSetlist?: number;
+  totalInSetlist?: number;
+};
 
 const ACCENT_COLOR = '#2563EB';
 
@@ -109,7 +132,93 @@ function RenderedPage({
     );
   }
 
-const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: BufferedPDFViewerProps) => {
+  function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+        paddingVertical: 8,
+      }}
+    >
+      <Text style={{ color: '#666', fontSize: 15 }}>
+        {label}
+      </Text>
+
+      <Text style={{ fontWeight: '600', fontSize: 15 }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function InfoSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View
+      style={{
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+        paddingTop: 12,
+        marginTop: 12,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 12,
+          fontWeight: '700',
+          color: '#777',
+          marginBottom: 6,
+          textTransform: 'uppercase',
+        }}
+      >
+        {title}
+      </Text>
+
+      {children}
+    </View>
+  );
+}
+
+function ActionRow({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress?: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingVertical: 9,
+      }}
+      onPress={onPress}
+    >
+      <Ionicons name={icon} size={19} color={ACCENT_COLOR} />
+      <Text style={{ fontSize: 15 }}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const BufferedPDFViewer = ({ uri, musicId, score, context, onMetadataUpdated }: BufferedPDFViewerProps) => {
   const pagerRef = useRef<PagerView>(null);
   const renderingPages = useRef<Set<number>>(new Set());
   const pageImagesRef = useRef<Record<number, string>>({});
@@ -140,6 +249,8 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
 
   const [labelOverlayVisible, setLabelOverlayVisible] =
     useState(false);
+  const [scoreInfoVisible, setScoreInfoVisible] = useState(false);
+  const [metadataFormVisible, setMetadataFormVisible] = useState(false);
 
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
@@ -624,23 +735,30 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
               <Ionicons name="chevron-back" size={28} color={ACCENT_COLOR} />
             </TouchableOpacity>
 
-            <View style={{ alignItems: 'center', flex: 1 }}>
+            <TouchableOpacity
+              style={{ alignItems: 'center', flex: 1 }}
+              activeOpacity={0.75}
+              onPress={() => {
+                setScoreInfoVisible(true);
+                setChromeVisible(true);
+              }}
+            >
               <Text style={{ fontWeight: '700', fontSize: 22, color: ACCENT_COLOR }}>
-                {title ?? "Untitled"}
+                {score.title ?? "Untitled"}
               </Text>
 
               <Text style={{ fontSize: 16, color: '#666', marginTop: 2 }}>
-                {composer && (
-                  <Text style={{ fontWeight: 'bold' }}>{composer} </Text>
+                {score.document_type === "Single Work" ? (
+                  <Text style={{ fontWeight: 'bold' }}>{score.composer} </Text>
+                ) : (
+                  <Text style={{ fontWeight: 'bold' }}>{score.editor} </Text>
                 )}
-                {setlistLabel && (
-                  <Text>
-                    · {setlistLabel} 
-                  </Text>
+                {context?.currentSetlistName && (
+                  <Text>· {context.currentSetlistName}</Text>
                 )}
                 · Page {currentPage} of {totalPages}
               </Text>
-            </View>
+            </TouchableOpacity>
 
             <Menu
               onOpen={() => {
@@ -877,6 +995,188 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
           </TouchableOpacity>
         </View>
       )}
+
+      {scoreInfoVisible && (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            zIndex: 2200,
+            backgroundColor: 'rgba(0,0,0,0.25)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <View
+            style={{
+              width: 460,
+              maxWidth: '90%',
+              backgroundColor: 'white',
+              borderRadius: 18,
+              padding: 20,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 18,
+              }}
+            >
+              <Text style={{ fontSize: 22, fontWeight: '700', color: ACCENT_COLOR }}>
+                Score Information
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setScoreInfoVisible(false);
+                  showChromeTemporarily();
+                }}
+              >
+                <Ionicons name="close" size={28} color={ACCENT_COLOR} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 14, marginBottom: 20 }}>
+              <View
+                style={{
+                  width: 90,
+                  height: 120,
+                  borderWidth: 1,
+                  borderColor: '#ddd',
+                  backgroundColor: '#f8f8f8',
+                }}
+              >
+                {thumbnailImages[1] || pageImages[1] ? (
+                  <Image
+                    source={{ uri: thumbnailImages[1] ?? pageImages[1] }}
+                    style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
+                  />
+                ) : null}
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 20, fontWeight: '700' }}>
+                  {score.title ?? 'Untitled'}
+                </Text>
+
+                {score.document_type === "Single Work" ? (
+                  <Text style={{ fontWeight: 'bold' }}>{score.composer} </Text>
+                ) : (
+                  <Text style={{ fontWeight: 'bold' }}>{score.editor} </Text>
+                )}
+
+                <Text style={{ fontSize: 14, color: '#777', marginTop: 4 }}>
+                  {totalPages} pages
+                </Text>
+
+                <View
+                  style={{
+                    alignSelf: 'flex-start',
+                    marginTop: 10,
+                    backgroundColor: '#EEF2FF',
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 12,
+                  }}
+                >
+                  <Text style={{ color: ACCENT_COLOR, fontWeight: '600' }}>
+                    {score.document_type}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <InfoSection title="Setlists">
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 10,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Ionicons name="list-outline" size={20} color={ACCENT_COLOR} />
+                  <Text style={{ fontSize: 15 }}>
+                    {context?.currentSetlistName || 'No setlist'}
+                  </Text>
+                </View>
+
+                <Text style={{ color: '#666' }}> {context?.currentSetlistId ? `${context?.positionInSetlist} of ${context?.totalInSetlist}` : ''} ›</Text>
+              </TouchableOpacity>
+            </InfoSection>
+
+            <InfoSection title="Labels">
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {score.labels && score.labels.length > 0 ? (
+                    score.labels?.map((label) => (
+                      <View
+                        key={label}
+                        style={{
+                          backgroundColor: '#F3F4F6',
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                          borderRadius: 12,
+                        }}
+                      >
+                        <Text style={{ color: '#555', fontSize: 13 }}>{label}</Text>
+                      </View>
+                  ))
+                ) : (
+                  <Text style={{ color: '#555', fontSize: 13 }}>No labels assigned.</Text>
+                )}
+              </View>
+            </InfoSection>
+
+            <InfoSection title="Notes">
+              <Text style={{ color: '#555', lineHeight: 20 }}>
+                No notes yet.
+              </Text>
+            </InfoSection>
+
+            <InfoSection title="Actions">
+              <ActionRow
+                icon="create-outline"
+                label="Edit Metadata"
+                onPress={() => {
+                  setScoreInfoVisible(false);
+                  setMetadataFormVisible(true);
+                }}
+              />
+              <ActionRow icon="folder-outline" label="Move to Setlist" />
+              <ActionRow icon="star-outline" label="Add to Favorites" />
+              <ActionRow icon="share-outline" label="Export Score" />
+            </InfoSection>
+          </View>
+        </View>
+      )}
+
+      <MetadataForm
+        visible={metadataFormVisible}
+        musicId={musicId}
+        pdfUri={uri}
+        mode="edit"
+        onCancel={() => {
+          setMetadataFormVisible(false);
+          showChromeTemporarily();
+        }}
+        onSave={(formData) => {
+          setMetadataFormVisible(false);
+
+          if (formData) {
+            // update local reader state or call parent refresh
+            onMetadataUpdated?.(formData);
+          }
+
+          showChromeTemporarily();
+        }}
+      />
 
       {jumpOverlayVisible && (
         <View
@@ -1345,7 +1645,7 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
         </View>
       )}
 
-      {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && (
+      {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && !scoreInfoVisible && (
         <GestureDetector gesture={centerTapGesture}>
           <View
             collapsable={false}
@@ -1356,13 +1656,13 @@ const BufferedPDFViewer = ({ uri, musicId, title, composer, setlistLabel }: Buff
               top: '25%',
               bottom: '25%',
               zIndex: 900,
-              // backgroundColor: 'red',
+              // backgroundColor: 'rgba(255, 0, 0, 0.12)',
             }}
           />
         </GestureDetector>
       )}
 
-      {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && (
+      {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && !scoreInfoVisible && (
         <>
           {/* left Pressable */}
 

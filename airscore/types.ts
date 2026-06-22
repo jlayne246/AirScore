@@ -17,7 +17,11 @@ export interface MusicItem {
 export interface MusicMetadata {
   id?: number;
   title: string;
+  document_type: string;
   composer: string;
+  arranger: string;
+  editor: string;
+  publisher: string;
   genre: string;
   key_signature: string;
   time_signature: string;
@@ -55,6 +59,10 @@ export interface MetadataFormData {
   setlists: string[];
   // Add all the metadata fields
   composer?: string;
+  arranger?: string;
+  editor?: string;
+  publisher?: string;
+  document_type: string;
   genre?: string;
   key_signature?: string;
   time_signature?: string;
@@ -67,3 +75,23 @@ export type Bookmark = {
   page_number: number;
   label?: string;
 };
+
+export type ScoreInfo = {
+  id?: number;
+  title?: string;
+  composer?: string;
+  arranger?: string;
+  publisher?: string;
+  category?: string;
+  notes?: string;
+  labels?: string[];
+  setlists?: string[];
+};
+
+export const DOCUMENT_TYPES = [
+  "Single Work",
+  "Collection",
+  "Service Book",
+  "Hymnal",
+  "Method Book",
+];

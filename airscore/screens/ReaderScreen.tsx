@@ -8,7 +8,7 @@ import PDFViewer from '../components/PDFViewer';
 import BufferedPDFViewer from '../components/BufferedPDFViewer';
 
 import { RouteProp } from '@react-navigation/native';
-import { RootStackParamList } from '../types';
+import { MusicMetadataWithLabels, RootStackParamList } from '../types';
 import { getMusicWithAllData, getMusicWithMetadata, markMusicAsOpened } from '../utils/database';
 
 type ReaderScreenProps = {
@@ -23,24 +23,28 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
     const [title, setTitle] = useState("Untitled");
     const [composer, setComposer] = useState("");
     const [setlistLabel, setSetlistLabel] = useState("");
+    const [music, setMusic] = useState<any>(null);
+
+    const loadMetadata = async () => {
+        if (!musicId) return;
+
+        const items = await getMusicWithMetadata(musicId);
+        const item = Array.isArray(items) ? items[0] : items;
+
+        if (!item) return;
+
+        setMusic(item);
+    };
 
     useEffect(() => {
-        const loadMetadata = async () => {
-            if (!musicId) return;
-
-            const items = await getMusicWithMetadata(musicId);
-            const item = Array.isArray(items) ? items[0] : items;
-            if (!item) return;
-
-            setTitle(item.metadata?.title ?? item.title ?? "Untitled");
-            setComposer(item.composer ?? "");
-            setSetlistLabel(item.setlists?.[0] ?? "");
-        };
-
         loadMetadata();
     }, [musicId]);
 
     if (!uri) {
+        return <Text>No PDF selected.</Text>;
+    }
+
+    if (!musicId) {
         return <Text>No PDF selected.</Text>;
     }
 
@@ -61,9 +65,19 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
         <BufferedPDFViewer 
             uri={uri} 
             musicId={musicId}
-            title={title}
-            composer={composer}
-            setlistLabel={setlistLabel}
+            score={{
+                title: music?.metadata?.title ?? music?.title ?? "Untitled",
+                document_type: music?.document_type ?? "Single Work",
+                composer: music?.composer ?? "",
+                arranger: music?.arranger ?? "",
+                editor: music?.editor ?? "",
+                publisher: music?.publisher ?? "",
+                notes: music?.notes ?? "",
+                labels: music?.labels ?? [],
+            }}
+            onMetadataUpdated={async () => {
+                await loadMetadata();
+            }}
         />
         </SafeAreaView>
     );

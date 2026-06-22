@@ -9,8 +9,9 @@ import {
   Modal,
   FlatList,
   Dimensions,
+  Image,
 } from 'react-native';
-import { MusicMetadata, Label, MusicMetadataWithLabels, MetadataFormData } from '../types';
+import { MusicMetadata, Label, MusicMetadataWithLabels, MetadataFormData, DOCUMENT_TYPES } from '../types';
 import {
   saveCompleteMetadata,
   getMusicWithMetadata,
@@ -22,9 +23,11 @@ import {
   addMusicToSetlist,
   metadataExists
 } from '../utils/database';
+import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
 
 interface MetadataFormProps {
   musicId?: number;
+  pdfUri?: string;
   initialTitle?: string;
   initialData?: MusicMetadataWithLabels;
   onSave: (formData?: MetadataFormData) => void;
@@ -35,6 +38,7 @@ interface MetadataFormProps {
 
 const MetadataForm: React.FC<MetadataFormProps> = ({
   musicId,
+  pdfUri,
   initialTitle,
   initialData,
   onSave,
@@ -45,7 +49,11 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   // Form state
   const [formData, setFormData] = useState<Omit<MusicMetadata, 'id'>>({
     title: '',
+    document_type: "Single Work",
     composer: '',
+    arranger: '',
+    editor: '',
+    publisher: '',
     genre: '',
     key_signature: '',
     time_signature: '',
@@ -53,6 +61,8 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   });
+
+  const [coverThumbnail, setCoverThumbnail] = useState<string | null>(null);
 
   // Labels state
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
@@ -66,6 +76,10 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   const [availableSetlists, setavailableSetlists] = useState<string[]>([]);
   const [newSetlistText, setNewSetlistText] = useState('');
   const [showSetlistModal, setShowSetlistModal] = useState(false);
+
+  const [showAllOptions, setShowAllOptions] = useState(false);
+  const [showAllKeyOptions, setShowAllKeyOptions] = useState(false);
+  const [showAllTimeOptions, setShowAllTimeOptions] = useState(false);
 
   // Common key signatures
   const keySignatures = [
@@ -87,6 +101,36 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
       loadData();
     }
   }, [visible, musicId]);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const loadDocumentData = async () => {
+      if (!pdfUri) return;
+
+      try {
+        const pageCount = await AirScorePdfRenderer.getPageCount(pdfUri);
+
+        setFormData(prev => ({
+          ...prev,
+          page_count: pageCount,
+        }));
+
+        const result = await AirScorePdfRenderer.renderPage({
+          pdfPath: pdfUri,
+          page: 1,
+          width: 400,
+          height: 600,
+        });
+
+        setCoverThumbnail(result.uri);
+      } catch (error) {
+        console.error("Failed to load PDF metadata:", error);
+      }
+    };
+
+    loadDocumentData();
+  }, [visible, pdfUri]);
 
   // Handle initialTitle changes (for new items)
   useEffect(() => {
@@ -119,7 +163,10 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
             const { labels, ...metadataOnly } = metadata;
             const itemsetlists = await getSetlistsForMusic(musicId); // Separate function
             console.log("IN METADATA: ", labels, metadataOnly, itemsetlists);
-            setFormData(metadataOnly);
+            setFormData(prev => ({
+              ...metadataOnly,
+              page_count: prev.page_count || metadataOnly.page_count || 0,
+            }));
             setSelectedLabels(labels);
             setselectedSetlists(itemsetlists || []);
           }
@@ -127,7 +174,10 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           const { labels, ...metadataOnly } = initialData;
           const itemsetlists = await getSetlistsForMusic(musicId); // Separate function
           console.log("Initial Data: ", labels, metadataOnly, itemsetlists);
-          setFormData(metadataOnly);
+          setFormData(prev => ({
+            ...metadataOnly,
+            page_count: prev.page_count || metadataOnly.page_count || 0,
+          }));
           setSelectedLabels(labels);
           setselectedSetlists(itemsetlists || []);
 
@@ -149,7 +199,11 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
         // });
         setFormData({
           title: initialTitle,
+          document_type: "Single Work",
           composer: '',
+          arranger: '',
+          editor: '',
+          publisher: '',
           genre: '',
           key_signature: '',
           time_signature: '',
@@ -179,6 +233,10 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
       ...formData,
       title,
       composer: formData.composer?.trim() || "",
+      document_type: formData.document_type.trim() || "",
+      arranger: formData.arranger?.trim() || "",
+      editor: formData.editor?.trim() || "",
+      publisher: formData.publisher?.trim() || "",
       genre: formData.genre?.trim() || "",
       key_signature: formData.key_signature?.trim() || "",
       time_signature: formData.time_signature?.trim() || "",
@@ -190,7 +248,11 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     if (mode === "add" || !musicId) {
       onSave({
         title: cleanedFormData.title,
+        document_type: cleanedFormData.document_type,
         composer: cleanedFormData.composer,
+        arranger: cleanedFormData.arranger,
+        editor: cleanedFormData.editor,
+        publisher: cleanedFormData.publisher,
         genre: cleanedFormData.genre,
         key_signature: cleanedFormData.key_signature,
         time_signature: cleanedFormData.time_signature,
@@ -227,7 +289,11 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
 
       onSave({
         title: cleanedFormData.title,
+        document_type: cleanedFormData.document_type,
         composer: cleanedFormData.composer,
+        arranger: cleanedFormData.arranger,
+        editor: cleanedFormData.editor,
+        publisher: cleanedFormData.publisher,
         genre: cleanedFormData.genre,
         key_signature: cleanedFormData.key_signature,
         time_signature: cleanedFormData.time_signature,
@@ -343,9 +409,12 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   //   </View>
   // );
 
-  const renderQuickSelectButtons = (options: string[], field: keyof typeof formData) => {
-    const [showAllOptions, setShowAllOptions] = useState(false);
-
+  const renderQuickSelectButtons = (
+    options: string[],
+    field: keyof typeof formData,
+    showAllOptions: boolean,
+    setShowAllOptions: React.Dispatch<React.SetStateAction<boolean>>
+  ) => {
     const visibleOptions = showAllOptions ? options : options.slice(0, 5);
     const hiddenCount = options.length - visibleOptions.length;
 
@@ -354,14 +423,14 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
         {visibleOptions.map(option => (
           <TouchableOpacity
             key={option}
-            className={`bg-white border border-gray-300 rounded-md py-1.5 px-2.5 mr-2 mb-2 ${formData[field] === option ? 'bg-green-500 border-green-500' : ''
-              }`}
+            className={`bg-white border border-gray-300 rounded-md py-1.5 px-2.5 mr-2 mb-2 ${
+              formData[field] === option ? 'bg-green-500 border-green-500' : ''
+            }`}
             onPress={() => setFormData(prev => ({ ...prev, [field]: option }))}
           >
-            <Text
-              className={`text-sm ${formData[field] === option ? 'text-white' : 'text-gray-800'
-                }`}
-            >
+            <Text className={`text-sm ${
+              formData[field] === option ? 'text-white' : 'text-gray-800'
+            }`}>
               {option}
             </Text>
           </TouchableOpacity>
@@ -379,254 +448,421 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     );
   };
 
-
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View className="flex-1 bg-gray-50">
-        <View className="flex-row justify-between items-center px-5 py-4 bg-white border-b border-gray-200 pt-12">
-          <TouchableOpacity onPress={onCancel} className="py-2 px-3">
-            <Text className="text-blue-500 text-base">Cancel</Text>
-          </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-800">
-            {mode === 'edit' ? 'Edit Metadata' : mode === 'view' ? 'View Metadata' : 'Add Metadata'}
-          </Text>
-          <TouchableOpacity
-            onPress={handleSave}
-            className={`py-2 px-4 rounded-lg ${isLoading ? 'bg-gray-400' : 'bg-blue-500'
-              }`}
-            disabled={isLoading}
-          >
-            <Text className="text-white text-base font-semibold">
-              {isLoading ? 'Saving...' : 'Save'}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      >
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.35)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 24,
+        }}
+      >
+        <View
+          style={{
+            width: '82%',
+            maxWidth: 900,
+            height: '88%',
+            backgroundColor: '#F9FAFB',
+            borderRadius: 18,
+            overflow: 'hidden',
+          }}
+        >
+          <View className="flex-row justify-between items-center px-5 py-4 bg-white border-b border-gray-200">
+            <TouchableOpacity onPress={onCancel} className="py-2 px-3">
+              <Text className="text-blue-500 text-base">Cancel</Text>
+            </TouchableOpacity>
+            <Text className="text-lg font-semibold text-gray-800">
+              {mode === 'edit' ? 'Edit Metadata' : mode === 'view' ? 'View Metadata' : 'Add Metadata'}
             </Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
-          {/* Title */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Title *</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.title}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
-              placeholder="Enter title"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-
-          {/* Composer */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Composer</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.composer}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, composer: text }))}
-              placeholder="Enter composer name"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-
-          {/* Genre */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Genre</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.genre}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, genre: text }))}
-              placeholder="Enter genre"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-
-          {/* Key Signature */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Key Signature</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.key_signature}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, key_signature: text }))}
-              placeholder="Enter key signature"
-              placeholderTextColor="#9CA3AF"
-            />
-            {renderQuickSelectButtons(keySignatures, 'key_signature')}
-          </View>
-
-          {/* Time Signature */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Time Signature</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.time_signature}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, time_signature: text }))}
-              placeholder="Enter time signature"
-              placeholderTextColor="#9CA3AF"
-            />
-            {renderQuickSelectButtons(timeSignatures, 'time_signature')}
-          </View>
-
-          {/* Page Count */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Page Count</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.page_count?.toString() || ''}
-              onChangeText={(text) => setFormData(prev => ({
-                ...prev,
-                page_count: parseInt(text) || 0
-              }))}
-              placeholder="Enter page count"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="numeric"
-            />
-          </View>
-
-          {/* Rating */}
-          {/* {renderRatingSelector()} */}
-
-          {/* Difficulty */}
-          {/* {renderDifficultySelector()} */}
-
-          {/* setlists */}
-          <View className="my-3">
-            <View className="flex-row justify-between items-center mb-2">
-              <Text className="text-base font-semibold text-gray-800">setlists</Text>
-
-              <TouchableOpacity
-                onPress={() => setShowSetlistModal(true)}
-                className="bg-blue-500 px-4 py-2 rounded-md"
-                style={{ minHeight: 36, justifyContent: 'center' }}
-              >
-                <Text className="text-white text-sm font-semibold leading-none self-center" style={{ lineHeight: 18 }}>
-                  + Add Setlist
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View className="flex-row flex-wrap gap-2">
-              {availableSetlists.map(group => (
-                <TouchableOpacity
-                  key={group}
-                  className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedSetlists.includes(group) ? 'bg-blue-500 border-blue-500' : ''
-                    }`}
-                  onPress={() => toggleSetlist(group)}
-                >
-                  <Text className={`text-sm ${selectedSetlists.includes(group) ? 'text-white' : 'text-gray-800'
-                    }`}>
-                    {group}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {selectedSetlists.length === 0 && (
-              <Text className="text-sm text-gray-500 mt-2 italic">
-                No setlists selected. Item will be placed in "Ungrouped".
+            <TouchableOpacity
+              onPress={handleSave}
+              className={`py-2 px-4 rounded-lg ${isLoading ? 'bg-gray-400' : 'bg-blue-500'
+                }`}
+              disabled={isLoading}
+            >
+              <Text className="text-white text-base font-semibold">
+                {isLoading ? 'Saving...' : 'Save'}
               </Text>
-            )}
+            </TouchableOpacity>
           </View>
 
-          {/* Labels */}
-          <View className="my-3">
-            <View className="flex-row justify-between items-center mb-2">
-              <Text className="text-base font-semibold text-gray-800">Labels</Text>
+          <ScrollView
+            className="flex-1 px-5"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingBottom: 24,
+            }}
+          >
+            {/* Title */}
+            <Text className="text-sm text-gray-800 font-semibold mt-3 mb-1">GENERAL</Text>
+            <View className="h-px bg-gray-200 my-2" />
 
-              <TouchableOpacity
-                onPress={() => setShowLabelModal(true)}
-                className="bg-green-500 px-4 py-2 rounded-md"
-                style={{ minHeight: 36, justifyContent: 'center' }}
-              >
-                <Text className="text-white text-sm font-semibold leading-none self-center" style={{ lineHeight: 18 }}>
-                  + Add Label
-                </Text>
-              </TouchableOpacity>
+            <View className="flex-row items-start my-3">
+              {coverThumbnail && (
+                <Image
+                  source={{ uri: coverThumbnail }}
+                  style={{
+                    width: 220,
+                    height: 270,
+                    resizeMode: 'contain',
+                    marginRight: 12,
+                    borderWidth: 1,
+                    borderColor: '#ddd',
+                  }}
+                />
+              )}
+
+              <View style={{ flex: 1 }}>
+                <View className="mb-3">
+                  <Text className="text-base font-medium text-gray-800 mb-2">
+                    Title
+                  </Text>
+
+                  <TextInput
+                    className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                    value={formData.title}
+                    onChangeText={(text) =>
+                      setFormData(prev => ({ ...prev, title: text }))
+                    }
+                    placeholder="Enter title"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+
+                {formData.document_type === "Single Work" ? (
+                  <>
+                    <View className="mb-3">
+                      <Text className="text-base font-medium text-gray-800 mb-2">
+                        Composer
+                      </Text>
+
+                      <TextInput
+                        className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                        value={formData.composer}
+                        onChangeText={(text) =>
+                          setFormData(prev => ({ ...prev, composer: text }))
+                        }
+                        placeholder="Enter composer name"
+                        placeholderTextColor="#9CA3AF"
+                      />
+                    </View>
+
+                    <View>
+                      <Text className="text-base font-medium text-gray-800 mb-2">
+                        Arranger
+                      </Text>
+
+                      <TextInput
+                        className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                        value={formData.arranger}
+                        onChangeText={(text) =>
+                          setFormData(prev => ({ ...prev, arranger: text }))
+                        }
+                        placeholder="Enter arranger name"
+                        placeholderTextColor="#9CA3AF"
+                      />
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View className="mb-3">
+                      <Text className="text-base font-medium text-gray-800 mb-2">
+                        Editor
+                      </Text>
+
+                      <TextInput
+                        className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                        value={formData.editor}
+                        onChangeText={(text) =>
+                          setFormData(prev => ({ ...prev, editor: text }))
+                        }
+                        placeholder="Enter editor name"
+                        placeholderTextColor="#9CA3AF"
+                      />
+                    </View>
+
+                    <View>
+                      <Text className="text-base font-medium text-gray-800 mb-2">
+                        Publisher
+                      </Text>
+
+                      <TextInput
+                        className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                        value={formData.publisher}
+                        onChangeText={(text) =>
+                          setFormData(prev => ({ ...prev, publisher: text }))
+                        }
+                        placeholder="Enter publisher name"
+                        placeholderTextColor="#9CA3AF"
+                      />
+                    </View>
+                  </>
+                )}
+              </View>
             </View>
 
-            <View className="flex-row flex-wrap gap-2">
-              {availableLabels.map(label => (
+            <Text className="text-sm text-gray-800 font-semibold mt-3 mb-1">MUSIC</Text>
+            <View className="h-px bg-gray-200 my-2" />
+            {/* Genre */}
+            <View className="my-3">
+              <Text className="text-base font-medium text-gray-800 mb-2">Genre</Text>
+              <TextInput
+                className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                value={formData.genre}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, genre: text }))}
+                placeholder="Enter genre"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            {/* Document Type */}
+            <View className="my-3">
+              <Text className="text-base font-medium text-gray-800 mb-2">
+                Document Type
+              </Text>
+
+              <View className="flex-row flex-wrap mt-2">
+                {DOCUMENT_TYPES.map(type => {
+                  const selected = formData.document_type === type;
+
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      className={`border rounded-full py-2 px-3 mr-2 mb-2 ${
+                        selected
+                          ? 'bg-blue-500 border-blue-500'
+                          : 'bg-white border-gray-300'
+                      }`}
+                      onPress={() =>
+                        setFormData(prev => ({
+                          ...prev,
+                          document_type: type,
+                        }))
+                      }
+                    >
+                      <Text
+                        className={`text-sm ${
+                          selected ? 'text-white' : 'text-gray-800'
+                        }`}
+                      >
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {formData.document_type === "Single Work" && (
+              <>
+                {/* Key Signature */}
+                <View className="my-3">
+                  <Text className="text-base font-medium text-gray-800 mb-2">Key Signature</Text>
+                  <TextInput
+                    className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                    value={formData.key_signature}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, key_signature: text }))}
+                    placeholder="Enter key signature"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  {renderQuickSelectButtons(
+                    keySignatures,
+                    'key_signature',
+                    showAllKeyOptions,
+                    setShowAllKeyOptions
+                  )}
+                </View>
+
+                {/* Time Signature */}
+                <View className="my-3">
+                  <Text className="text-base font-medium text-gray-800 mb-2">Time Signature</Text>
+                  <TextInput
+                    className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                    value={formData.time_signature}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, time_signature: text }))}
+                    placeholder="Enter time signature"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  {renderQuickSelectButtons(
+                    timeSignatures,
+                    'time_signature',
+                    showAllTimeOptions,
+                    setShowAllTimeOptions
+                  )}
+                </View>
+              </>
+            )}
+
+            
+
+            <Text className="text-sm text-gray-800 font-semibold mt-3 mb-1">DOCUMENT</Text>
+            <View className="h-px bg-gray-200 my-2" />
+            {/* Page Count */}
+            <View className="my-3">
+              <Text className="text-base font-medium text-gray-800 mb-2">Page Count</Text>
+              <View className="bg-white border border-gray-300 rounded-lg px-4 py-3">
+                <Text className="text-base text-gray-800">
+                  {formData.page_count || 0} pages
+                </Text>
+              </View>
+            </View>
+
+            {/* Rating */}
+            {/* {renderRatingSelector()} */}
+
+            {/* Difficulty */}
+            {/* {renderDifficultySelector()} */}
+
+            <Text className="text-sm text-gray-800 font-semibold mt-3 mb-1">ORGANISATION</Text>
+            <View className="h-px bg-gray-200 my-2" />
+
+            {/* setlists */}
+            <View className="my-3">
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-base font-medium text-gray-800">Setlists</Text>
+
                 <TouchableOpacity
-                  key={label.id}
-                  className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedLabels.includes(label.name) ? 'bg-purple-500 border-purple-500' : ''
-                    }`}
-                  onPress={() => toggleLabel(label.name)}
+                  onPress={() => setShowSetlistModal(true)}
+                  className="bg-blue-500 px-4 py-2 rounded-md"
+                  style={{ minHeight: 36, justifyContent: 'center' }}
                 >
-                  <Text className={`text-sm ${selectedLabels.includes(label.name) ? 'text-white' : 'text-gray-800'
-                    }`}>
-                    {label.name}
+                  <Text className="text-white text-sm font-medium leading-none self-center" style={{ lineHeight: 18 }}>
+                    + Add to Setlist
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </ScrollView>
+              </View>
 
-        {/* Add Setlist Modal */}
-        <Modal visible={showSetlistModal} transparent animationType="fade">
-          <View className="flex-1 bg-black/50 justify-center items-center">
-            <View className="bg-white rounded-xl p-6 mx-5 w-full max-w-sm">
-              <Text className="text-lg font-semibold text-gray-800 mb-4 text-center">Add New Setlist</Text>
-              <TextInput
-                className="border border-gray-300 rounded-lg px-4 py-3 text-base mb-5"
-                value={newSetlistText}
-                onChangeText={setNewSetlistText}
-                placeholder="Enter group name"
-                placeholderTextColor="#9CA3AF"
-                autoFocus
-              />
-              <View className="flex-row gap-3">
+              <View className="flex-row flex-wrap gap-2">
+                {availableSetlists.map(group => (
+                  <TouchableOpacity
+                    key={group}
+                    className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedSetlists.includes(group) ? 'bg-blue-500 border-blue-500' : ''
+                      }`}
+                    onPress={() => toggleSetlist(group)}
+                  >
+                    <Text className={`text-sm ${selectedSetlists.includes(group) ? 'text-white' : 'text-gray-800'
+                      }`}>
+                      {group}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {selectedSetlists.length === 0 && (
+                <Text className="text-sm text-gray-500 mt-2 italic">
+                  No setlists selected. Item will be placed in "Ungrouped".
+                </Text>
+              )}
+            </View>
+
+            {/* Labels */}
+            <View className="my-3">
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-base font-medium text-gray-800">Labels</Text>
+
                 <TouchableOpacity
-                  onPress={() => {
-                    setShowSetlistModal(false);
-                    setNewSetlistText('');
-                  }}
-                  className="flex-1 py-3 rounded-lg border border-gray-300 items-center"
+                  onPress={() => setShowLabelModal(true)}
+                  className="bg-green-500 px-4 py-2 rounded-md"
+                  style={{ minHeight: 36, justifyContent: 'center' }}
                 >
-                  <Text className="text-base text-gray-800">Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleAddSetlist}
-                  className="flex-1 bg-blue-500 py-3 rounded-lg items-center"
-                >
-                  <Text className="text-base text-white font-semibold">Add</Text>
+                  <Text className="text-white text-sm font-medium leading-none self-center" style={{ lineHeight: 18 }}>
+                    + Add Label
+                  </Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          </View>
-        </Modal>
 
-        {/* Add Label Modal */}
-        <Modal visible={showLabelModal} transparent animationType="fade">
-          <View className="flex-1 bg-black/50 justify-center items-center">
-            <View className="bg-white rounded-xl p-6 mx-5 w-full max-w-sm">
-              <Text className="text-lg font-semibold text-gray-800 mb-4 text-center">Add New Label</Text>
-              <TextInput
-                className="border border-gray-300 rounded-lg px-4 py-3 text-base mb-5"
-                value={newLabelText}
-                onChangeText={setNewLabelText}
-                placeholder="Enter label name"
-                placeholderTextColor="#9CA3AF"
-                autoFocus
-              />
-              <View className="flex-row gap-3">
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowLabelModal(false);
-                    setNewLabelText('');
-                  }}
-                  className="flex-1 py-3 rounded-lg border border-gray-300 items-center"
-                >
-                  <Text className="text-base text-gray-800">Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleAddLabel}
-                  className="flex-1 bg-green-500 py-3 rounded-lg items-center"
-                >
-                  <Text className="text-base text-white font-semibold">Add</Text>
-                </TouchableOpacity>
+              <View className="flex-row flex-wrap gap-2">
+                {availableLabels.map(label => (
+                  <TouchableOpacity
+                    key={label.id}
+                    className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedLabels.includes(label.name) ? 'bg-purple-500 border-purple-500' : ''
+                      }`}
+                    onPress={() => toggleLabel(label.name)}
+                  >
+                    <Text className={`text-sm ${selectedLabels.includes(label.name) ? 'text-white' : 'text-gray-800'
+                      }`}>
+                      {label.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
-          </View>
-        </Modal>
+          </ScrollView>
+
+          {/* Add Setlist Modal */}
+          <Modal visible={showSetlistModal} transparent animationType="fade">
+            <View className="flex-1 bg-black/50 justify-center items-center">
+              <View className="bg-white rounded-xl p-6 mx-5 w-full max-w-sm">
+                <Text className="text-lg font-semibold text-gray-800 mb-4 text-center">Add New Setlist</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-lg px-4 py-3 text-base mb-5"
+                  value={newSetlistText}
+                  onChangeText={setNewSetlistText}
+                  placeholder="Enter group name"
+                  placeholderTextColor="#9CA3AF"
+                  autoFocus
+                />
+                <View className="flex-row gap-3">
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowSetlistModal(false);
+                      setNewSetlistText('');
+                    }}
+                    className="flex-1 py-3 rounded-lg border border-gray-300 items-center"
+                  >
+                    <Text className="text-base text-gray-800">Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleAddSetlist}
+                    className="flex-1 bg-blue-500 py-3 rounded-lg items-center"
+                  >
+                    <Text className="text-base text-white font-semibold">Add</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Add Label Modal */}
+          <Modal visible={showLabelModal} transparent animationType="fade">
+            <View className="flex-1 bg-black/50 justify-center items-center">
+              <View className="bg-white rounded-xl p-6 mx-5 w-full max-w-sm">
+                <Text className="text-lg font-semibold text-gray-800 mb-4 text-center">Add New Label</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-lg px-4 py-3 text-base mb-5"
+                  value={newLabelText}
+                  onChangeText={setNewLabelText}
+                  placeholder="Enter label name"
+                  placeholderTextColor="#9CA3AF"
+                  autoFocus
+                />
+                <View className="flex-row gap-3">
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowLabelModal(false);
+                      setNewLabelText('');
+                    }}
+                    className="flex-1 py-3 rounded-lg border border-gray-300 items-center"
+                  >
+                    <Text className="text-base text-gray-800">Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleAddLabel}
+                    className="flex-1 bg-green-500 py-3 rounded-lg items-center"
+                  >
+                    <Text className="text-base text-white font-semibold">Add</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        </View>
       </View>
     </Modal>
   );

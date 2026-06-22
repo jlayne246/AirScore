@@ -84,7 +84,11 @@ export const initDB = async (): Promise<void> => {
         CREATE TABLE IF NOT EXISTS music_metadata (
           id INTEGER PRIMARY KEY,
           title TEXT NOT NULL,
+          document_type TEXT DEFAULT 'Single Work',
           composer TEXT,
+          arranger TEXT,
+          editor TEXT,
+          publisher TEXT,
           genre TEXT,
           key_signature TEXT,
           time_signature TEXT,
@@ -136,7 +140,41 @@ export const initDB = async (): Promise<void> => {
         ON music_metadata (title, composer);
       `);
 
-      
+      await ensureColumn(
+        "music_metadata",
+        "document_type",
+        `
+        ALTER TABLE music_metadata
+        ADD COLUMN document_type TEXT DEFAULT 'Single Work';
+        `
+      );
+
+      await ensureColumn(
+        "music_metadata",
+        "editor",
+        `
+        ALTER TABLE music_metadata
+        ADD COLUMN editor TEXT DEFAULT '';
+        `
+      );
+
+      await ensureColumn(
+        "music_metadata",
+        "publisher",
+        `
+        ALTER TABLE music_metadata
+        ADD COLUMN publisher TEXT DEFAULT '';
+        `
+      );
+
+      await ensureColumn(
+        "music_metadata",
+        "arranger",
+        `
+        ALTER TABLE music_metadata
+        ADD COLUMN arranger TEXT DEFAULT '';
+        `
+      );
 
       console.log("Database initialized");
     } catch (error) {
@@ -148,6 +186,24 @@ export const initDB = async (): Promise<void> => {
 
   return _initPromise;
 };
+
+async function ensureColumn(
+  tableName: string,
+  columnName: string,
+  addColumnSql: string
+) {
+  const db = await openDatabase();
+
+  const columns = await db.getAllAsync<{ name: string }>(
+    `PRAGMA table_info(${tableName});`
+  );
+
+  const exists = columns.some((column) => column.name === columnName);
+
+  if (!exists) {
+    await db.execAsync(addColumnSql);
+  }
+}
 
 export const getRecentlyOpenedMusic = async (
   limit: number = 10
@@ -634,18 +690,22 @@ export const saveMusicMetadata = async (
         // Insert or replace metadata
         await db.runAsync(`
             INSERT OR REPLACE INTO music_metadata (
-                id, title, composer, genre, key_signature, 
+                id, title, document_type, composer, arranger, editor, publisher, genre, key_signature, 
                 time_signature, page_count, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             musicId,
             metadata.title,
-            metadata.composer || null,
-            metadata.genre || null,
-            metadata.key_signature || null,
-            metadata.time_signature || null,
-            metadata.page_count || null,
-            metadata.created_at || new Date().toISOString()
+            metadata.document_type,
+            metadata.composer ?? "",
+            metadata.arranger ?? "",
+            metadata.editor ?? "",
+            metadata.publisher ?? "",
+            metadata.genre ?? "",
+            metadata.key_signature ?? "",
+            metadata.time_signature ?? "",
+            metadata.page_count ?? 0,
+            metadata.created_at ?? new Date().toISOString()
         ]);
 
         await db.execAsync('COMMIT');
