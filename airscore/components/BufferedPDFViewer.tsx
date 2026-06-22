@@ -70,6 +70,8 @@ const THUMB_COLUMNS = 4;
 const THUMB_ITEM_WIDTH = 120;
 const THUMB_ROW_HEIGHT = 180;
 
+const TOP_CHROME_HEIGHT = 112;
+
 type DisplayMode =
   | "single"
   | "twoPage";
@@ -720,20 +722,21 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
             top: 0,
             left: 0,
             right: 0,
-            height: 64,
+            height: TOP_CHROME_HEIGHT,
             zIndex: 1300,
             backgroundColor: 'rgba(255,255,255,0.96)',
             borderBottomWidth: 1,
             borderBottomColor: '#ddd',
             paddingHorizontal: 16,
-            justifyContent: 'center',
+            paddingTop: 30,
+            paddingBottom: 8,
           }}
         >
           <View
             style={{
+              flex: 1,
               flexDirection: 'row',
               alignItems: 'center',
-              justifyContent: 'space-between',
             }}
           >
             <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -741,79 +744,73 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={{ alignItems: 'center', flex: 1 }}
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingHorizontal: 12,
+              }}
               activeOpacity={0.75}
               onPress={() => {
                 setScoreInfoVisible(true);
                 setChromeVisible(true);
               }}
             >
-              <Text style={{ fontWeight: '700', fontSize: 22, color: ACCENT_COLOR }}>
-                {score.title ?? "Untitled"}
+              <Text
+                style={{
+                  fontWeight: '700',
+                  fontSize: 22,
+                  color: ACCENT_COLOR,
+                }}
+                numberOfLines={1}
+              >
+                {score.title}
               </Text>
 
-              <Text style={{ fontSize: 16, color: '#666', marginTop: 2 }}>
-                {score.document_type === "Single Work" ? (
-                  <Text style={{ fontWeight: 'bold' }}>{score.composer} </Text>
-                ) : (
-                  <Text style={{ fontWeight: 'bold' }}>{score.editor} </Text>
-                )}
-                {context?.setlistName && (
-                  <Text>· {context.setlistName} · {context.currentIndex} of {context.totalItems}</Text>
-                )}
-                · Page {currentPage} of {totalPages}
+              <Text style={{ fontSize: 14, color: '#666' }} numberOfLines={1}>
+                {score.document_type === 'Single Work' ? score.composer : score.editor}
+              </Text>
+
+              {context?.setlistName && (
+                <Text style={{ fontSize: 13, color: '#888' }} numberOfLines={1}>
+                  {context.setlistName} · Score {context.currentIndex} of {context.totalItems}
+                </Text>
+              )}
+
+              <Text style={{ fontSize: 13, color: '#888' }}>
+                Page {currentPage} of {totalPages}
               </Text>
             </TouchableOpacity>
 
-            <Menu
-              onOpen={() => {
-                setOverflowMenuOpen(true);
-                setChromeVisible(true);
-
-                if (chromeHideTimer.current) {
-                  clearTimeout(chromeHideTimer.current);
-                  chromeHideTimer.current = null;
+            <Menu 
+              onOpen={() => { 
+                setOverflowMenuOpen(true); 
+                setChromeVisible(true); 
+                
+                if (chromeHideTimer.current) { 
+                    clearTimeout(chromeHideTimer.current); 
+                    chromeHideTimer.current = null; 
+                  } 
                 }
-              }}
-              onClose={() => {
-                setOverflowMenuOpen(false);
-                showChromeTemporarily();
-              }}
-            >
-              <MenuTrigger>
-                <Ionicons name="ellipsis-vertical" size={28} color={ACCENT_COLOR} />
-              </MenuTrigger>
-
-              <MenuOptions
-                customStyles={{
-                  optionsContainer: {
-                    paddingVertical: 6,
-                    width: 220,
-                  },
-                }}
-              >
-                <MenuOption
-                  onSelect={() => {
-                    setDisplayMode((mode) =>
-                      mode === 'single' ? 'twoPage' : 'single'
-                    );
-                  }}
-                >
-                  <Text style={{ padding: 10, fontSize: 16, color: ACCENT_COLOR  }}>
-                    View: {displayMode === 'twoPage' ? 'Two Page' : 'Single Page'}
-                  </Text>
-                </MenuOption>
-
-                <MenuOption
-                  onSelect={() => {
-                    setCoverOffset((v) => !v);
-                  }}
-                >
-                  <Text style={{ padding: 10, fontSize: 16, color: ACCENT_COLOR  }}>
-                    Cover Offset: {coverOffset ? 'On' : 'Off'}
-                  </Text>
-                </MenuOption>
-              </MenuOptions>
+              } 
+              onClose={() => { 
+                  setOverflowMenuOpen(false); 
+                  showChromeTemporarily(); 
+                }
+              } 
+            > 
+              <MenuTrigger> 
+                <Ionicons name="ellipsis-vertical" size={28} color={ACCENT_COLOR} /> 
+              </MenuTrigger> 
+              
+              <MenuOptions customStyles={{ optionsContainer: { paddingVertical: 6, width: 220, }, }} > 
+                <MenuOption onSelect={() => { setDisplayMode((mode) => mode === 'single' ? 'twoPage' : 'single' ); }} > 
+                  <Text style={{ padding: 10, fontSize: 16, color: ACCENT_COLOR }}> View: {displayMode === 'twoPage' ? 'Two Page' : 'Single Page'} </Text> 
+                </MenuOption> 
+                <MenuOption onSelect={() => { setCoverOffset((v) => !v); }} > 
+                  <Text style={{ padding: 10, fontSize: 16, color: ACCENT_COLOR }}> Cover Offset: {coverOffset ? 'On' : 'Off'} </Text> 
+                </MenuOption> 
+              </MenuOptions> 
             </Menu>
           </View>
         </View>
