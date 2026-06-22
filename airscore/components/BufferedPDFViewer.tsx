@@ -949,14 +949,25 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
             paddingHorizontal: 12,
           }}
         >
-          {context?.setlistId && (
+          {context?.setlistId ? (
             <TouchableOpacity
               style={{ alignItems: 'center' }}
-              // onPress={() => goToPage(currentPage - pageStep)}
               onPress={onPreviousScore}
             >
               <Ionicons name="arrow-back" size={28} color={ACCENT_COLOR} />
-              <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Previous Score</Text>
+              <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>
+                Previous Score
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={{ alignItems: 'center' }}
+              onPress={() => goToPage(currentPage - pageStep)}
+            >
+              <Ionicons name="arrow-back" size={28} color={ACCENT_COLOR} />
+              <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>
+                Previous Page
+              </Text>
             </TouchableOpacity>
           )}
 
@@ -994,7 +1005,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
             <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Bookmarks</Text>
           </TouchableOpacity>
 
-          {context?.setlistId && (
+          {context?.setlistId ? (
             <TouchableOpacity
               style={{ alignItems: 'center' }}
               // onPress={() => goToPage(currentPage + pageStep)}
@@ -1002,6 +1013,16 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
             >
               <Ionicons name="arrow-forward" size={28} color={ACCENT_COLOR} />
               <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Next Score</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={{ alignItems: 'center' }}
+              onPress={() => goToPage(currentPage + pageStep)}
+            >
+              <Ionicons name="arrow-forward" size={28} color={ACCENT_COLOR} />
+              <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>
+                Next Page
+              </Text>
             </TouchableOpacity>
           )}
         </View>
