@@ -1,7 +1,21 @@
 export type RootStackParamList = {
   Library: undefined;
-  Reader: { uri: string, musicId?: number };
+  Reader: {
+    uri: string;
+    musicId: number;
+    context?: {
+      setlistId: number;
+      setlistName: string;
+      currentIndex: number;
+      totalItems: number;
+    };
+  };
   Dashboard: undefined;
+  Setlists: undefined;
+  SetlistDetail: {
+    setlistId: number;
+    setlistName: string;
+  };
 };
 
 // Define types for music items
@@ -98,3 +112,21 @@ export const DOCUMENT_TYPES = [
   "Hymnal",
   "Method Book",
 ];
+
+export type ScoreMetadata = {
+  title: string;
+  document_type: string;
+  composer?: string;
+  editor?: string;
+  arranger?: string;
+  publisher?: string;
+  notes?: string;
+  labels?: string[];
+};
+
+export type ReaderContext = {
+  currentSetlistId?: number;
+  currentSetlistName?: string;
+  positionInSetlist?: number;
+  totalInSetlist?: number;
+};

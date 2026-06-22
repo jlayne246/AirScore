@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -72,6 +72,56 @@ const LibraryScreen = () => {
   const sectionListRef = useRef<SectionList<MusicItemWithAllData>>(null);
 
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+        header: () => (
+        <View
+            style={{
+            height: 92,
+            backgroundColor: 'white',
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
+            justifyContent: 'flex-end',
+            paddingHorizontal: 20,
+            paddingBottom: 12,
+            }}
+        >
+            <View
+            style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+            }}
+            >
+            <Text
+                style={{
+                fontSize: 28,
+                // fontWeight: '700',
+                color: '#111827',
+                }}
+            >
+                Library
+            </Text>
+
+            <TouchableOpacity
+                onPress={handleImport}
+                style={{
+                    // width: 42,
+                    // height: 42,
+                    // borderRadius: 7,
+                    // backgroundColor: '#2563EB',
+                    // alignItems: 'center',
+                    // justifyContent: 'center',
+                }}
+            >
+                <Ionicons name="add" size={28} color="#2563EB" />
+            </TouchableOpacity>
+            </View>
+        </View>
+        ),
+    });
+    }, [navigation]);
 
   useEffect(() => {
     initDB();
@@ -574,12 +624,12 @@ const LibraryScreen = () => {
         />
       )}
 
-      <TouchableOpacity
+      {/* <TouchableOpacity
         className="absolute bottom-6 right-6 bg-blue-500 rounded w-14 h-14 justify-center items-center shadow-md shadow-black/20 elevation-5"
         onPress={handleImport}
       >
         <Ionicons name="add" size={32} color="white" />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
   );
 };

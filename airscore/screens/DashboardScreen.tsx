@@ -107,7 +107,7 @@ const DashboardScreen = ({}) => {
 
         navigation.navigate("Reader", {
             uri: item.uri,
-            musicId: item.id,
+            musicId: item.id!,
         });
 
         setTimeout(() => setOpeningId(null), 1000);
@@ -239,7 +239,7 @@ const DashboardScreen = ({}) => {
 
                 {/* Sets */}
                 <View className="flex-1 justify-center items-center">
-                    <TouchableOpacity className="p-2 m-1 rounded justify-center items-center w-full">
+                    <TouchableOpacity className="p-2 m-1 rounded justify-center items-center w-full" onPress={() => navigation.navigate('Setlists')}>
                         <Ionicons name="folder-open" size={48} color="dodgerblue" />
                         <Text className="text-[16px] text-dodger p-1">Sets</Text>
                     </TouchableOpacity>

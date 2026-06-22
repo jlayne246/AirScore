@@ -1026,6 +1026,42 @@ export const getSetlistsForMusic = async (musicId: number): Promise<string[]> =>
     }
 };
 
+export const getMusicIdsForSetlist = async (
+  setlistId: number
+): Promise<number[]> => {
+  const db = await openDatabase();
+
+  const rows = await db.getAllAsync<{ music_id: number }>(
+    `
+    SELECT music_id
+    FROM music_setlists
+    WHERE setlist_id = ?
+    ORDER BY position ASC, music_id ASC
+    `,
+    [setlistId]
+  );
+
+  return rows.map(r => r.music_id);
+};
+
+export const createSetlist = async (
+  name: string,
+  description: string = ""
+): Promise<number> => {
+  const db = await openDatabase();
+  const now = new Date().toISOString();
+
+  const result = await db.runAsync(
+    `
+    INSERT INTO setlists (name, description, created_at, updated_at)
+    VALUES (?, ?, ?, ?)
+    `,
+    [name.trim(), description.trim(), now, now]
+  );
+
+  return result.lastInsertRowId;
+};
+
 export const getSetlistSummaries = async () => {
   const db = await openDatabase();
 

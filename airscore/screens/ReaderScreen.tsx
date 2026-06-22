@@ -8,7 +8,7 @@ import PDFViewer from '../components/PDFViewer';
 import BufferedPDFViewer from '../components/BufferedPDFViewer';
 
 import { RouteProp } from '@react-navigation/native';
-import { MusicMetadataWithLabels, RootStackParamList } from '../types';
+import { MusicMetadataWithLabels, ReaderContext, RootStackParamList } from '../types';
 import { getMusicWithAllData, getMusicWithMetadata, markMusicAsOpened } from '../utils/database';
 
 type ReaderScreenProps = {
@@ -18,7 +18,7 @@ type ReaderScreenProps = {
 
 const ReaderScreen = ({ route }: ReaderScreenProps) => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { uri, musicId } = route.params as { uri: string; musicId?: number };
+    const { uri, musicId, context } = route.params as { uri: string; musicId?: number, context: ReaderContext };
 
     const [title, setTitle] = useState("Untitled");
     const [composer, setComposer] = useState("");
@@ -78,6 +78,7 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
             onMetadataUpdated={async () => {
                 await loadMetadata();
             }}
+            context={context}
         />
         </SafeAreaView>
     );

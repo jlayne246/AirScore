@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { runOnJS } from 'react-native-reanimated';
 import {
   ActivityIndicator,
@@ -38,6 +39,9 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   Bookmark,
   MetadataFormData,
+  ReaderContext,
+  RootStackParamList,
+  ScoreMetadata,
 } from '../types';
 import { activateKeepAwakeAsync } from 'expo-keep-awake';
 import MetadataForm from './MetadataForm';
@@ -52,24 +56,6 @@ interface BufferedPDFViewerProps {
 
   onMetadataUpdated?: (formData: MetadataFormData) => void;
 }
-
-type ScoreMetadata = {
-  title: string;
-  document_type: string;
-  composer?: string;
-  editor?: string;
-  arranger?: string;
-  publisher?: string;
-  notes?: string;
-  labels?: string[];
-};
-
-type ReaderContext = {
-  currentSetlistId?: number;
-  currentSetlistName?: string;
-  positionInSetlist?: number;
-  totalInSetlist?: number;
-};
 
 const ACCENT_COLOR = '#2563EB';
 
@@ -263,7 +249,9 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, onMetadataUpdated }: 
   const pageStep =
     effectiveDisplayMode === 'twoPage' ? 2 : 1;
 
-  const navigation = useNavigation();
+  type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+  const navigation = useNavigation<NavigationProp>();
 
   const pagerPageCount =
   effectiveDisplayMode === 'twoPage'
@@ -402,6 +390,8 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, onMetadataUpdated }: 
 //     thumbnailBatchCancelled.current = true;
 //   };
 // }, [jumpOverlayVisible, totalPages, currentPage, renderThumbnail]);
+
+console.log("Context, ", context)
 
   const renderBufferAround = useCallback(
     (page: number) => {
@@ -754,7 +744,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, onMetadataUpdated }: 
                   <Text style={{ fontWeight: 'bold' }}>{score.editor} </Text>
                 )}
                 {context?.currentSetlistName && (
-                  <Text>· {context.currentSetlistName}</Text>
+                  <Text>· {context.currentSetlistName} · {context.positionInSetlist} of {context.totalInSetlist}</Text>
                 )}
                 · Page {currentPage} of {totalPages}
               </Text>
@@ -1100,6 +1090,14 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, onMetadataUpdated }: 
                   justifyContent: 'space-between',
                   paddingVertical: 10,
                 }}
+                onPress={() => {
+                  if (context?.currentSetlistId && context?.currentSetlistName) {
+                    navigation.navigate('SetlistDetail', {
+                      setlistId: context?.currentSetlistId!,
+                      setlistName: context?.currentSetlistName!})
+                    }
+                  }
+                }
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Ionicons name="list-outline" size={20} color={ACCENT_COLOR} />

@@ -13,6 +13,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import LibraryScreen from './screens/LibraryScreen';
 import ReaderScreen from './screens/ReaderScreen';
 import DashboardScreen from './screens/DashboardScreen';
+import SetlistsScreen from './screens/SetlistsScreen';
+import SetlistDetailScreen from './screens/SetlistDetailScreen';
 
 import DevToolsButton from "./components/DevToolsButton";
 import TestComponent from "./components/TestTailwind";
@@ -73,6 +75,8 @@ export default function App() {
                       headerShown: false,
                     }}
                   />
+                  <Stack.Screen name="Setlists" component={SetlistsScreen} />
+                  <Stack.Screen name="SetlistDetail" component={SetlistDetailScreen} />
                 </Stack.Navigator>
               </NavigationContainer>
             </MenuProvider>
