@@ -56,6 +56,7 @@ export const initDB = async (): Promise<void> => {
           title TEXT NOT NULL,
           uri TEXT NOT NULL,
           created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
           last_opened_at TEXT DEFAULT (datetime('now'))
         );
       `);
@@ -64,7 +65,10 @@ export const initDB = async (): Promise<void> => {
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS setlists (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL UNIQUE
+          name TEXT NOT NULL UNIQUE,
+          description TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
         );
       `);
 
@@ -72,10 +76,13 @@ export const initDB = async (): Promise<void> => {
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS music_setlists (
           music_id INTEGER,
-          group_id INTEGER,
-          PRIMARY KEY (music_id, group_id),
+          setlist_id INTEGER,
+          position INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY (music_id, setlist_id),
           FOREIGN KEY (music_id) REFERENCES music (id) ON DELETE CASCADE,
-          FOREIGN KEY (group_id) REFERENCES setlists (id) ON DELETE CASCADE
+          FOREIGN KEY (setlist_id) REFERENCES setlists (id) ON DELETE CASCADE
         );
       `);
 
@@ -176,6 +183,33 @@ export const initDB = async (): Promise<void> => {
         `
       );
 
+      // await ensureColumn(
+      //   "music_setlists",
+      //   "description",
+      //   `
+      //   ALTER TABLE music_metadata
+      //   ADD COLUMN description TEXT DEFAULT '';
+      //   `
+      // );
+
+      // await ensureColumn(
+      //   "music_setlists",
+      //   "created_at",
+      //   `
+      //   ALTER TABLE music_metadata
+      //   ADD COLUMN created_at TEXT DEFAULT (datetime('now'));
+      //   `
+      // );
+
+      await ensureColumn(
+        "music",
+        "updated_at",
+        `
+        ALTER TABLE music
+        ADD COLUMN updated_at TEXT;
+        `
+      );
+
       console.log("Database initialized");
     } catch (error) {
       _initPromise = null;
@@ -237,13 +271,13 @@ export const markMusicAsOpened = async (musicId: number): Promise<void> => {
  * Inserts a new music item into the database
  * @param title - The title of the music item
  * @param uri - The uri / path of the music item
- * @param groupNames - The group names selected for the music item
+ * @param setlistNames - The setlist names selected for the music item
  * @returns musicId - The id of the music item inserted
  */
 export const insertMusic = async (
   title: string,
   uri: string,
-  groupNames: string[],
+  setlistNames: string[],
   created_at: string
 ) : Promise<number> => {
     const db = await openDatabase();
@@ -265,26 +299,26 @@ export const insertMusic = async (
 
         const musicId = musicResult.lastInsertRowId;
 
-        // Process each group
-        for (const groupName of groupNames) {
-            // Insert group if it doesn't exist
+        // Process each setlist
+        for (const setlistName of setlistNames) {
+            // Insert setlist if it doesn't exist
             await db.runAsync(
-                'INSERT OR IGNORE INTO setlists (name) VALUES (?)', [groupName]
+                'INSERT OR IGNORE INTO setlists (name) VALUES (?)', [setlistName]
             );
 
-            // Get the group ID
-            const group = await db.getFirstAsync<Setlist>(
-                'SELECT id FROM setlists WHERE name = ?', [groupName]
+            // Get the setlist ID
+            const setlist = await db.getFirstAsync<Setlist>(
+                'SELECT id FROM setlists WHERE name = ?', [setlistName]
             );
 
-            // Checks to see if a group id was returned, otherwise, an error is thrown
-            if (!group || typeof group.id == 'undefined') {
-                throw new Error(`Setlist "${groupName}" not found after insertion`)
+            // Checks to see if a setlist id was returned, otherwise, an error is thrown
+            if (!setlist || typeof setlist.id == 'undefined') {
+                throw new Error(`Setlist "${setlistName}" not found after insertion`)
             }
 
-            // Create the relationship between the music item and the group(s)
+            // Create the relationship between the music item and the setlist(s)
             await db.runAsync(
-                'INSERT INTO music_setlists (music_id, group_id) VALUES (?, ?)', [musicId, group.id]
+                'INSERT INTO music_setlists (music_id, setlist_id) VALUES (?, ?)', [musicId, setlist.id]
             );
         }
 
@@ -357,7 +391,7 @@ export const updateMusic = async (
   id: number,
   title: string,
   uri: string,
-  groupNames: string[],
+  setlistNames: string[],
   updated_at: string
 ): Promise<void> => {
   const db = await openDatabase();
@@ -382,33 +416,33 @@ export const updateMusic = async (
     );
 
     // Insert any new setlists (ignore existing)
-    for (const groupName of groupNames) {
+    for (const setlistName of setlistNames) {
       await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
-        groupName,
+        setlistName,
       ]);
     }
 
-    // Get all current group IDs
-    const groupIds = [];
-    for (const name of groupNames) {
-      const group = await db.getFirstAsync<Setlist>(
+    // Get all current setlist IDs
+    const setlistIds = [];
+    for (const name of setlistNames) {
+      const setlist = await db.getFirstAsync<Setlist>(
         "SELECT id FROM setlists WHERE name = ?",
         [name]
       );
-      if (!group || group.id === undefined) {
+      if (!setlist || setlist.id === undefined) {
         throw new Error(`Setlist "${name}" not found after insertion`);
       }
-      groupIds.push(group.id);
+      setlistIds.push(setlist.id);
     }
 
     // Remove all existing associations
     await db.runAsync("DELETE FROM music_setlists WHERE music_id = ?", [id]);
 
     // Re-insert updated associations
-    for (const groupId of groupIds) {
+    for (const setlistId of setlistIds) {
       await db.runAsync(
-        "INSERT INTO music_setlists (music_id, group_id) VALUES (?, ?)",
-        [id, groupId]
+        "INSERT INTO music_setlists (music_id, setlist_id) VALUES (?, ?)",
+        [id, setlistId]
       );
     }
 
@@ -450,7 +484,7 @@ export const getAllMusicWithSetlists = async (): Promise<
             const setlists = await db.getAllAsync<{ name: string }>(
                 `SELECT g.name
                     FROM setlists g
-                    JOIN music_setlists mg ON g.id = mg.group_id
+                    JOIN music_setlists mg ON g.id = mg.setlist_id
                     WHERE mg.music_id = ?`,
                 [music.id]
             );
@@ -471,30 +505,30 @@ export const getAllMusicWithSetlists = async (): Promise<
 
 /**
  * Get music items that belong to all of the specified setlists
- * @param groupNames - Array of group names to filter by
+ * @param setlistNames - Array of setlist names to filter by
  * @returns Array of music items that belong to all specified setlists
  */
-export const getMusicByMultipleSetlists = async (groupNames: string[]) : Promise<MusicItem[]> => {
-    // If the groupNames param is empty, return an empty array
-    if (groupNames.length === 0) {
+export const getMusicByMultipleSetlists = async (setlistNames: string[]) : Promise<MusicItem[]> => {
+    // If the setlistNames param is empty, return an empty array
+    if (setlistNames.length === 0) {
         return [];
     }
 
     const db = await openDatabase();
 
     // Create placeholders for the query
-    const placeholders = groupNames.map(() => '?').join(',');
+    const placeholders = setlistNames.map(() => '?').join(',');
 
-    // Query for all music items that match the specified setlists, grouped by groupName
+    // Query for all music items that match the specified setlists, setlisted by setlistName
     const result = await db.getAllAsync<MusicItem>(
         `SELECT m.*
         FROM music m
         JOIN music_setlists mg ON m.id = mg.music_id
-        JOIN setlists g ON mg.group_id = g.id
+        JOIN setlists g ON mg.setlist_id = g.id
         WHERE g.name IN (${placeholders})
         GROUP BY m.id
         HAVING COUNT(DISTINCT g.name) = ?`, 
-        [...groupNames, groupNames.length]
+        [...setlistNames, setlistNames.length]
     );
 
     return result;
@@ -512,39 +546,39 @@ export const deleteMusic = async (id: number) => {
 }
 
 /**
- * Add a music item to a group
+ * Add a music item to a setlist
  * @param musicId - ID of the music item
- * @param groupName - Name of the group
+ * @param setlistName - Name of the setlist
  */
-export const addMusicToSetlist = async (musicId: number, groupName: string) => {
+export const addMusicToSetlist = async (musicId: number, setlistName: string) => {
     const db = await openDatabase();
 
     try {
         await db.execAsync('BEGIN TRANSACTION');
 
-        // Insert group if it doesn't exist
-        if (groupName !== "Ungrouped") {
-          await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
-            groupName,
-          ]);
-        }          
+        // Insert setlist if it doesn't exist
+        // if (setlistName !== "") {
+        await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
+          setlistName,
+        ]);
+        // }          
 
-        console.log(musicId, groupName);
+        console.log(musicId, setlistName);
 
-        // Get the group ID
-        const group = await db.getFirstAsync<Setlist>(
-            'SELECT id FROM setlists WHERE name = ?', [groupName]
+        // Get the setlist ID
+        const setlist = await db.getFirstAsync<Setlist>(
+            'SELECT id FROM setlists WHERE name = ?', [setlistName]
         );
 
-        // Verify if we get a valid group
-        if (!group || typeof group.id == "undefined") {
-            throw new Error(`Setlist "${groupName}" not found`);
+        // Verify if we get a valid setlist
+        if (!setlist || typeof setlist.id == "undefined") {
+            throw new Error(`Setlist "${setlistName}" not found`);
         }
 
-        // Create the relationship between the musicItem and its group
+        // Create the relationship between the musicItem and its setlist
         await db.runAsync(
-            'INSERT OR IGNORE INTO music_setlists (music_id, group_id) VALUES (?, ?)',
-            [musicId, group.id]
+            'INSERT OR IGNORE INTO music_setlists (music_id, setlist_id) VALUES (?, ?)',
+            [musicId, setlist.id]
         );
 
         // Commits if successful
@@ -557,23 +591,23 @@ export const addMusicToSetlist = async (musicId: number, groupName: string) => {
 }
 
 /**
- * Removes a music item from a group
+ * Removes a music item from a setlist
  * @param musicId - ID of the music item
- * @param groupName - Name of the group
+ * @param setlistName - Name of the setlist
  */
-export const removeMusicFromSetlist = async (musicId: number, groupName: string) => {
+export const removeMusicFromSetlist = async (musicId: number, setlistName: string) => {
     const db = await openDatabase();
 
-    // Deletes item from group by ID
+    // Deletes item from setlist by ID
     await db.runAsync(
         `DELETE FROM music_setlists
-        WHERE music_id = ? AND group_id = (
+        WHERE music_id = ? AND setlist_id = (
             SELECT id FROM setlists WHERE name = ?
-        )`, [musicId, groupName]
+        )`, [musicId, setlistName]
     );
 }
 
-export const setMusicSetlists = async (musicId: number, groupNames: string[]) => {
+export const setMusicSetlists = async (musicId: number, setlistNames: string[]) => {
     const db = await openDatabase();
 
     try {
@@ -582,21 +616,21 @@ export const setMusicSetlists = async (musicId: number, groupNames: string[]) =>
         // Remove all current setlists
         await db.runAsync("DELETE FROM music_setlists WHERE music_id = ?", [musicId]);
 
-        // Re-add current selections (excluding "Ungrouped")
-        for (const groupName of groupNames.filter((g) => g !== "Ungrouped")) {
+        // Re-add current selections (excluding "Unsetlisted")
+        for (const setlistName of setlistNames.filter((g) => g !== "")) {
         await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
-            groupName,
+            setlistName,
         ]);
 
-        const group = await db.getFirstAsync<{ id: number }>(
+        const setlist = await db.getFirstAsync<{ id: number }>(
             "SELECT id FROM setlists WHERE name = ?",
-            [groupName]
+            [setlistName]
         );
 
-        if (group?.id !== undefined) {
+        if (setlist?.id !== undefined) {
             await db.runAsync(
-            "INSERT INTO music_setlists (music_id, group_id) VALUES (?, ?)",
-            [musicId, group.id]
+            "INSERT INTO music_setlists (music_id, setlist_id) VALUES (?, ?)",
+            [musicId, setlist.id]
             );
         }
         }
@@ -903,7 +937,7 @@ export const getMusicWithAllData = async (): Promise<
             const setlists = await db.getAllAsync<{ name: string }>(
             `SELECT g.name
                         FROM setlists g
-                        JOIN music_setlists mg ON g.id = mg.group_id
+                        JOIN music_setlists mg ON g.id = mg.setlist_id
                         WHERE mg.music_id = ?`,
             [music.id]
             );
@@ -951,17 +985,17 @@ export const getAllSetlists = async (): Promise<string[]> => {
     const db = await openDatabase();
 
     try {
-        const setlists = await db.getAllAsync<{ group_name: string }>(`
-            SELECT DISTINCT name as group_name
+        const setlists = await db.getAllAsync<{ setlist_name: string }>(`
+            SELECT DISTINCT name as setlist_name
             FROM setlists
             WHERE name IS NOT NULL
             ORDER BY name ASC
         `);
 
-        return setlists.map((g) => g.group_name);
+        return setlists.map((g) => g.setlist_name);
     } catch (error) {
         console.error("Error getting all setlists:", error);
-        return []; // No fallback 'Ungrouped' needed here
+        return []; // No fallback 'Unsetlisted' needed here
     }
 };
   
@@ -972,11 +1006,11 @@ export const getSetlistsForMusic = async (musicId: number): Promise<string[]> =>
     try {
         // Query to get setlists associated with a specific music item
         // This assumes you have a junction table like 'music_setlists' or similar
-        const setlists = await db.getAllAsync<{ group_name: string }>(
+        const setlists = await db.getAllAsync<{ setlist_name: string }>(
         `
-            SELECT g.name as group_name
+            SELECT g.name as setlist_name
             FROM setlists g
-            INNER JOIN music_setlists mg ON g.id = mg.group_id
+            INNER JOIN music_setlists mg ON g.id = mg.setlist_id
             WHERE mg.music_id = ?
             ORDER BY g.name ASC
         `,
@@ -985,11 +1019,32 @@ export const getSetlistsForMusic = async (musicId: number): Promise<string[]> =>
 
         console.log(setlists);
 
-        return setlists.length > 0 ? setlists.map((g) => g.group_name) : ["Ungrouped"];      
+        return setlists.length > 0 ? setlists.map((g) => g.setlist_name) : [];      
     } catch (error) {
         console.error("Error getting setlists for music:", error);
-        return ["Ungrouped"]; // Return default group on error
+        return []; // Return default setlist on error
     }
+};
+
+export const getSetlistSummaries = async () => {
+  const db = await openDatabase();
+
+  return db.getAllAsync<{
+    id: number;
+    name: string;
+    description?: string;
+    item_count: number;
+  }>(`
+    SELECT
+      s.id,
+      s.name,
+      s.description,
+      COUNT(ms.music_id) AS item_count
+    FROM setlists s
+    LEFT JOIN music_setlists ms ON s.id = ms.setlist_id
+    GROUP BY s.id, s.name, s.description
+    ORDER BY s.name ASC
+  `);
 };
 
 // BOOKMARK HELPERS

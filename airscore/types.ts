@@ -49,8 +49,11 @@ export type MusicItemWithAllData = MusicItem & {
 
 // Define types for the setlists
 export interface Setlist {
-    id?: number;
+    id: number;
     name: string;
+    description?: string;
+    created_at: string;
+    updated_at: string;
 }
 
 // Updated interface to include all metadata

@@ -110,11 +110,21 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
 
       try {
         const pageCount = await AirScorePdfRenderer.getPageCount(pdfUri);
+        console.log(`URI: ${pdfUri} | Page Count: ${pageCount}`)
 
-        setFormData(prev => ({
-          ...prev,
-          page_count: pageCount,
-        }));
+        setFormData(prev => {
+          const next = {
+            ...prev,
+            page_count: pageCount,
+          };
+
+          console.log("Previous page count:", prev.page_count);
+          console.log("Next page count:", next.page_count);
+
+          return next;
+        });
+
+        // console.log(`FormData Page Count: ${formData.page_count}`)
 
         const result = await AirScorePdfRenderer.renderPage({
           pdfPath: pdfUri,
@@ -197,7 +207,8 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
         //     title: initialTitle
         //   };
         // });
-        setFormData({
+        setFormData(prev => ({
+          ...prev,
           title: initialTitle,
           document_type: "Single Work",
           composer: '',
@@ -207,10 +218,10 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           genre: '',
           key_signature: '',
           time_signature: '',
-          page_count: 0,
+          page_count: prev.page_count || 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        });
+        }));
         console.log(formData)
         // Set default group for new items
         setselectedSetlists([]);
@@ -229,6 +240,11 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
       return;
     }
 
+    const resolvedPageCount =
+      pdfUri
+        ? await AirScorePdfRenderer.getPageCount(pdfUri)
+        : Number(formData.page_count) || 0;
+
     const cleanedFormData = {
       ...formData,
       title,
@@ -240,7 +256,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
       genre: formData.genre?.trim() || "",
       key_signature: formData.key_signature?.trim() || "",
       time_signature: formData.time_signature?.trim() || "",
-      page_count: Number(formData.page_count) || 0,
+      page_count: resolvedPageCount,
       updated_at: new Date().toISOString(),
     };
 

@@ -16,6 +16,7 @@ import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleSetlists, d
 
 import * as troubleshooting from "../utils/troubleshooting";
 import DeleteModal from '../components/DeleteModal';
+import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
 
 const DashboardScreen = ({}) => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -164,6 +165,10 @@ const DashboardScreen = ({}) => {
                 cleanSetlists,
                 now
             );
+
+            const pageCount = await AirScorePdfRenderer.getPageCount(pendingPdfUri);
+
+            console.log("Page Count Dash: ", pageCount)
 
             const metadataToSave = {
                 title: formData.title,
