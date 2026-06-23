@@ -94,15 +94,33 @@ const LibraryScreen = () => {
                 justifyContent: 'space-between',
             }}
             >
-            <Text
-                style={{
-                fontSize: 28,
-                // fontWeight: '700',
-                color: '#111827',
-                }}
-            >
-                Library
-            </Text>
+              <View
+                    style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    flex: 1,
+                    }}
+                >
+                  <TouchableOpacity
+                      onPress={() => navigation.goBack()}
+                      style={{ marginRight: 12 }}
+                      >
+                      <Ionicons
+                          name="chevron-back"
+                          size={28}
+                          color={ACCENT_COLOR}
+                      />
+                      </TouchableOpacity>
+                  <Text
+                      style={{
+                      fontSize: 28,
+                      // fontWeight: '700',
+                      color: '#111827',
+                      }}
+                  >
+                      Setlists
+                  </Text>
+                </View>
 
             <TouchableOpacity
                 onPress={handleImport}
