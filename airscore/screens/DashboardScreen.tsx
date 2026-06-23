@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { RefreshControl, View, ScrollView, Text, FlatList, SectionList, Animated, Button, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
 
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -28,6 +29,17 @@ const DashboardScreen = ({}) => {
     const [showDeleteForm, setShowDeleteForm] = useState(false);
     const [deletedMusicId, setDeletedMusicId] = useState<number>();
 
+    const styles = StyleSheet.create({
+      menuItem: {
+        padding: 12,
+        fontSize: 16,
+        color: '#111827',
+      },
+      menuOption: {
+        paddingHorizontal: 4,
+      },
+    });
+
     useLayoutEffect(() => {
         navigation.setOptions({
             header: () => (
@@ -39,18 +51,55 @@ const DashboardScreen = ({}) => {
                         padding: 12,
                     }}
                 >
-                <Text
+                    <View
                     style={{
-                        color: 'black',
-                        fontWeight: '300',
-                        fontSize: 24,
-                        padding: 12,
-                        marginLeft: 20,
-                        marginTop: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                     }}
-                >
-                    AirScore
-                </Text>
+                    >
+                        <Text
+                            style={{
+                                color: 'black',
+                                fontWeight: '300',
+                                fontSize: 24,
+                                padding: 12,
+                                marginLeft: 20,
+                                marginTop: 12,
+                            }}
+                        >
+                            AirScore
+                        </Text>
+                        <Menu>
+                          <MenuTrigger>
+                            <Ionicons
+                              name="ellipsis-vertical"
+                              size={28}
+                              color="#111827"
+                            />
+                          </MenuTrigger>
+                        
+                          <MenuOptions>
+                            {/* <MenuOption style={styles.menuOption} onSelect={() => navigation.navigate('Settings')}> */}
+                            <MenuOption style={styles.menuOption} onSelect={() => Alert.alert('Coming Soon')}>
+                              <Text style={styles.menuItem}>Settings</Text>
+                            </MenuOption>
+                        
+                            <MenuOption style={styles.menuOption} onSelect={() => Alert.alert('Coming Soon')}>
+                              <Text style={styles.menuItem}>Account & Sync</Text>
+                            </MenuOption>
+                        
+                            <MenuOption style={styles.menuOption} onSelect={() => Alert.alert('Coming Soon')}>
+                              <Text style={styles.menuItem}>Backups</Text>
+                            </MenuOption>
+                        
+                            {/* <MenuOption style={styles.menuOption} onSelect={() => navigation.navigate('About')}> */}
+                            <MenuOption style={styles.menuOption} onSelect={() => Alert.alert('Coming Soon')}>
+                              <Text style={styles.menuItem}>About AIRScore</Text>
+                            </MenuOption>
+                          </MenuOptions>
+                        </Menu>
+                    </View>
                 </View>
             ),
             });
