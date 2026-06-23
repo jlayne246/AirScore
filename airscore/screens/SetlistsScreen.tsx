@@ -53,6 +53,7 @@ const SetlistsScreen = () => {
               navigation.navigate('SetlistDetail', {
                 setlistId: item.id,
                 setlistName: item.name,
+                setlistDescription: item.description
               })
             }
             style={{

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, SafeAreaView } from 'react-native';
+import { View, Text, SafeAreaView, Alert } from 'react-native';
+import {Snackbar} from 'react-native-paper';
 
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,6 +26,13 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
     const [composer, setComposer] = useState("");
     const [setlistLabel, setSetlistLabel] = useState("");
     const [music, setMusic] = useState<any>(null);
+    const [toastVisible, setToastVisible] = useState(false);
+    const [toastMessage, setToastMessage] = useState("");
+
+    const showToast = (message: string) => {
+        setToastMessage(message);
+        setToastVisible(true);
+    };
 
     const loadMetadata = async () => {
         if (!musicId) return;
@@ -46,7 +54,16 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
         openAt: "first" | "last" = "first"
     ) => {
         if (!context?.musicIds?.length) return;
-        if (nextIndex < 0 || nextIndex >= context.musicIds.length) return;
+
+        if (nextIndex < 0) {
+            showToast("Start of setlist");
+            return;
+        }
+
+        if (nextIndex >= context.musicIds.length) {
+            showToast("End of setlist");
+            return;
+        }
 
         const nextMusicId = context.musicIds[nextIndex];
 
@@ -94,42 +111,62 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
 
     return (
         <SafeAreaView style={{ flex: 1 }}>
-        <BufferedPDFViewer 
-            uri={uri} 
-            musicId={musicId}
-            score={{
-                title: music?.metadata?.title ?? music?.title ?? "Untitled",
-                document_type: music?.document_type ?? "Single Work",
-                composer: music?.composer ?? "",
-                arranger: music?.arranger ?? "",
-                editor: music?.editor ?? "",
-                publisher: music?.publisher ?? "",
-                notes: music?.notes ?? "",
-                labels: music?.labels ?? [],
-            }}
-            onMetadataUpdated={async () => {
-                await loadMetadata();
-            }}
-            onPreviousScore={() =>
-                openSetlistScore(context.currentIndex - 2, "first")
-            }
+            <BufferedPDFViewer 
+                uri={uri} 
+                musicId={musicId}
+                score={{
+                    title: music?.metadata?.title ?? music?.title ?? "Untitled",
+                    document_type: music?.document_type ?? "Single Work",
+                    composer: music?.composer ?? "",
+                    arranger: music?.arranger ?? "",
+                    editor: music?.editor ?? "",
+                    publisher: music?.publisher ?? "",
+                    notes: music?.notes ?? "",
+                    labels: music?.labels ?? [],
+                }}
+                onMetadataUpdated={async () => {
+                    await loadMetadata();
+                }}
+                onPreviousScore={() =>
+                    openSetlistScore(context.currentIndex - 2, "first")
+                }
 
-            onNextScore={() =>
-                openSetlistScore(context.currentIndex, "first")
-            }
+                onNextScore={() =>
+                    openSetlistScore(context.currentIndex, "first")
+                }
 
-            onPreviousScoreFromPageTurn={() =>
-                openSetlistScore(context.currentIndex - 2, "last")
-            }
+                onPreviousScoreFromPageTurn={() =>
+                    openSetlistScore(context.currentIndex - 2, "last")
+                }
 
-            onNextScoreFromPageTurn={() =>
-                openSetlistScore(context.currentIndex, "first")
-            }
-            context={context}
-            initialPage={startPage}
-        />
+                onNextScoreFromPageTurn={() =>
+                    openSetlistScore(context.currentIndex, "first")
+                }
+                context={context}
+                initialPage={startPage}
+            />
+
+            {toastVisible && (
+                <View
+                    style={{
+                    position: "absolute",
+                    bottom: 30,
+                    alignSelf: "center",
+                    backgroundColor: "rgba(0,0,0,0.85)",
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    borderRadius: 20,
+                    }}
+                >
+                    <Text style={{ color: "white" }}>
+                    {toastMessage}
+                    </Text>
+                </View>
+            )}
         </SafeAreaView>
     );
 };
+
+
 
 export default ReaderScreen;

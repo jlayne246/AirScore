@@ -563,30 +563,30 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
   
 
   const goToPage = useCallback(
-    (page: number) => {
+    (page: number, options?: { showChrome?: boolean }) => {
       const nextPage = Math.max(1, Math.min(page, totalPages));
 
       setCurrentPage(nextPage);
-      const getPagerIndexForPage = (page: number) => {
-        if (effectiveDisplayMode === 'single') {
-          return page - 1;
-        }
 
-        if (coverOffset) {
-          return page <= 1 ? 0 : Math.ceil((page - 1) / 2);
-        }
-
-        return Math.floor((page - 1) / 2);
-      };
       pagerRef.current?.setPage(getPagerIndexForPage(nextPage));
 
       AsyncStorage.setItem(`pdf:lastPage:${uri}`, nextPage.toString());
 
-      showChromeTemporarily();
+      if (options?.showChrome !== false) {
+        showChromeTemporarily();
+      }
+
       renderPage(nextPage);
       renderBufferAround(nextPage);
     },
-    [totalPages, uri, renderPage, renderBufferAround, coverOffset, effectiveDisplayMode]
+    [
+      totalPages,
+      uri,
+      renderPage,
+      renderBufferAround,
+      getPagerIndexForPage,
+      showChromeTemporarily,
+    ]
   );
 
   const toggleBookmark = useCallback(async () => {
@@ -1722,8 +1722,8 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
                 return;
               }
 
-              goToPage(previousPage);
-              showChromeTemporarily();
+              goToPage(previousPage, {showChrome: false});
+              // showChromeTemporarily();
             }}
           />
 
@@ -1755,8 +1755,8 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
                 return;
               }
 
-              goToPage(nextPage);
-              showChromeTemporarily();
+              goToPage(nextPage, {showChrome: false});
+              // showChromeTemporarily();
             }}
           />
         </>

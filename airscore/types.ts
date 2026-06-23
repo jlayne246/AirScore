@@ -17,6 +17,7 @@ export type RootStackParamList = {
   SetlistDetail: {
     setlistId: number;
     setlistName: string;
+    setlistDescription: string;
   };
 };
 
