@@ -141,6 +141,45 @@ const SetlistsScreen = () => {
             </Text>
           </TouchableOpacity>
         )}
+        ListEmptyComponent={
+          <View
+            style={{
+                alignItems: 'center',
+                paddingTop: 48,
+            }}
+            >
+            <Ionicons
+                name="folder-open-outline"
+                size={48}
+                color="#9CA3AF"
+            />
+
+            <Text
+                style={{
+                marginTop: 12,
+                fontSize: 18,
+                fontWeight: '600',
+                }}
+            >
+                No setlists yet
+            </Text>
+
+            <TouchableOpacity
+                onPress={() => setShowCreateModal(true)}
+                style={{
+                marginTop: 16,
+                backgroundColor: '#2563EB',
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                borderRadius: 8,
+                }}
+            >
+                <Text style={{ color: 'white' }}>
+                Add Setlists
+                </Text>
+            </TouchableOpacity>
+          </View>
+        }
       />
 
       <Modal visible={showCreateModal} transparent animationType="fade">
