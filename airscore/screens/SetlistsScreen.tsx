@@ -11,6 +11,74 @@ const SetlistsScreen = () => {
     const [newSetlistName, setNewSetlistName] = useState("");
     const [newSetlistDescription, setNewSetlistDescription] = useState("");
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+        header: () => (
+        <View
+            style={{
+            height: 92,
+            backgroundColor: 'white',
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
+            justifyContent: 'flex-end',
+            paddingHorizontal: 20,
+            paddingBottom: 12,
+            }}
+        >
+            <View
+            style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+            }}
+            >
+              <View
+                  style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  flex: 1,
+                  }}
+              >
+                <TouchableOpacity
+                    onPress={() => navigation.goBack()}
+                    style={{ marginRight: 12 }}
+                    >
+                    <Ionicons
+                        name="chevron-back"
+                        size={28}
+                        color={ACCENT_COLOR}
+                    />
+                    </TouchableOpacity>
+                <Text
+                    style={{
+                    fontSize: 28,
+                    // fontWeight: '700',
+                    color: '#111827',
+                    }}
+                >
+                    Setlists
+                </Text>
+              </View>
+
+            <TouchableOpacity
+                onPress={() => setShowCreateModal(true)}
+                style={{
+                    // width: 42,
+                    // height: 42,
+                    // borderRadius: 7,
+                    // backgroundColor: '#2563EB',
+                    // alignItems: 'center',
+                    // justifyContent: 'center',
+                }}
+            >
+                <Ionicons name="add" size={28} color="#2563EB" />
+            </TouchableOpacity>
+            </View>
+        </View>
+        ),
+    });
+    }, [navigation]);
+
   const loadSetlists = async () => {
   const results = await getSetlistSummaries();
     setSetlists(results);
