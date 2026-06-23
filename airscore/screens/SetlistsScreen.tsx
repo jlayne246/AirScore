@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, Modal, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { createSetlist, getSetlistSummaries } from '../utils/database';
 import { Ionicons } from '@expo/vector-icons';
+
+const ACCENT_COLOR = '#2563EB';
 
 const SetlistsScreen = () => {
   const navigation = useNavigation<any>();
@@ -109,9 +111,6 @@ const SetlistsScreen = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white', padding: 16 }}>
-        <TouchableOpacity onPress={() => setShowCreateModal(true)}>
-            <Ionicons name="add" size={28} color="#2563EB" />
-        </TouchableOpacity>
       <FlatList
         data={setlists}
         keyExtractor={(item) => item.id.toString()}
@@ -175,7 +174,7 @@ const SetlistsScreen = () => {
                 }}
             >
                 <Text style={{ color: 'white' }}>
-                Add Setlists
+                Add Setlist
                 </Text>
             </TouchableOpacity>
           </View>
