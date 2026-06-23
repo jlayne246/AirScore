@@ -118,7 +118,7 @@ const LibraryScreen = () => {
                       color: '#111827',
                       }}
                   >
-                      Setlists
+                      Library
                   </Text>
                 </View>
 
