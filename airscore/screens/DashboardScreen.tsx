@@ -131,10 +131,10 @@ const DashboardScreen = ({}) => {
             const uri = await UploadLocalPDF();
         
             if (uri) {
-            const raw_title = uri.split('/').pop() || 'Untitled';
+            const raw_title = uri.originalFilename.split('/').pop() || 'Untitled';
             const title = raw_title.replace('.pdf', '');
         
-            setPendingPdfUri(uri);              // store the file path
+            setPendingPdfUri(uri.uri);              // store the file path
             setPrefilledTitle(title);          // prefill title for metadata form
             setInfoboxMode("new"); 
             setShowMetadataForm(true);         // show metadata form

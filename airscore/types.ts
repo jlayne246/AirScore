@@ -24,6 +24,7 @@ export interface MusicItem {
   id?: number;
   title: string;
   uri: string;
+  original_filename: string;
   created_at: string;
   last_opened_at?: string;
 }

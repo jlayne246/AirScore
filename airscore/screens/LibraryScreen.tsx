@@ -168,10 +168,10 @@ const LibraryScreen = () => {
 
     if (!uri) return;
 
-    const rawTitle = uri.split('/').pop() || 'Untitled';
+    const rawTitle = uri.originalFilename.split('/').pop() || 'Untitled';
     const title = rawTitle.replace('.pdf', '');
 
-    setPendingPdfUri(uri);
+    setPendingPdfUri(uri.uri);
     setPrefilledTitle(title);
     setSelectedMusicId(undefined);
     setInfoboxMode('new');

@@ -14,30 +14,36 @@ import * as FileSystem from 'expo-file-system';
  * @using DocumentPicker, FileSystem
  * @returns local path of the uploaded PDF as a string; or returns null
  */
-export const UploadLocalPDF = async (): Promise<string | null> => {
-    // This displays the system UI for choosing a document. It only allows PDF files, and it doesn't copy to the app's cache. This returns the information about the chosen document.
-    const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        copyToCacheDirectory: false
-    });
+import * as Crypto from "expo-crypto";
 
-    if (result.assets && result.assets.length > 0) {
-        // Retrieves the file object from the chosen file
-        const file = result.assets[0];
-        /**
-         * This line of code sets the destination path for the uploaded PDF
-         * FileSystem.documentDirectory provides the URI/directory where the user documents for the apps will be stored. They may remain there unless deleted by the app.
-         * file.name retrieves the file name from the selected document
-         */
-        const dest = `${FileSystem.documentDirectory}${file.name}`;
+export const UploadLocalPDF = async (): Promise<{
+  uri: string;
+  originalFilename: string;
+} | null> => {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: "application/pdf",
+    copyToCacheDirectory: false,
+  });
 
-        // FileSystem.copyAsync creates a copy of the file. In this case, it copies the file from the original location (using file.uri) to the destination location set before
-        await FileSystem.copyAsync({
-            from: file.uri, to: dest
-        });
+  if (!result.assets?.length) return null;
 
-        return dest; // local file path to the saved PDF
-    }
+  const file = result.assets[0];
 
-    return null;
-}
+  const id = Crypto.randomUUID();
+  const dest = `${FileSystem.documentDirectory}scores/${id}.pdf`;
+
+  await FileSystem.makeDirectoryAsync(
+    `${FileSystem.documentDirectory}scores`,
+    { intermediates: true }
+  );
+
+  await FileSystem.copyAsync({
+    from: file.uri,
+    to: dest,
+  });
+
+  return {
+    uri: dest,
+    originalFilename: file.name,
+  };
+};

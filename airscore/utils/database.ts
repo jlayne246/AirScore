@@ -55,6 +55,7 @@ export const initDB = async (): Promise<void> => {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           uri TEXT NOT NULL,
+          original_filename TEXT NOT NULL,
           created_at TEXT DEFAULT (datetime('now')),
           updated_at TEXT DEFAULT (datetime('now')),
           last_opened_at TEXT DEFAULT (datetime('now'))
@@ -182,6 +183,22 @@ export const initDB = async (): Promise<void> => {
         ADD COLUMN arranger TEXT DEFAULT '';
         `
       );
+
+      await ensureColumn(
+        "music",
+        "original_filename",
+        `
+        ALTER TABLE music
+        ADD COLUMN original_filename TEXT;
+        `
+      );
+
+      // await db.runAsync(`
+      //   UPDATE music
+      //   SET original_filename = substr(uri, length(rtrim(uri, replace(uri, '/', ''))) + 1)
+      //   WHERE original_filename IS NULL
+      //     OR trim(original_filename) = '';
+      // `);
 
       // await ensureColumn(
       //   "music_setlists",
