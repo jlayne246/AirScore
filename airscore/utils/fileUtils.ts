@@ -16,10 +16,7 @@ import * as FileSystem from 'expo-file-system';
  */
 import * as Crypto from "expo-crypto";
 
-export const UploadLocalPDF = async (): Promise<{
-  uri: string;
-  originalFilename: string;
-} | null> => {
+export const UploadLocalPDF = async () => {
   const result = await DocumentPicker.getDocumentAsync({
     type: "application/pdf",
     copyToCacheDirectory: false,
@@ -29,21 +26,29 @@ export const UploadLocalPDF = async (): Promise<{
 
   const file = result.assets[0];
 
-  const id = Crypto.randomUUID();
-  const dest = `${FileSystem.documentDirectory}scores/${id}.pdf`;
+  return importPdfFromUri(file.uri, file.name);
+};
 
-  await FileSystem.makeDirectoryAsync(
-    `${FileSystem.documentDirectory}scores`,
-    { intermediates: true }
-  );
+export const importPdfFromUri = async (
+  sourceUri: string,
+  originalFilename: string
+) => {
+  const scoresDir = `${FileSystem.documentDirectory}scores/`;
+
+  await FileSystem.makeDirectoryAsync(scoresDir, {
+    intermediates: true,
+  });
+
+  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`;
+  const dest = `${scoresDir}${filename}`;
 
   await FileSystem.copyAsync({
-    from: file.uri,
+    from: sourceUri,
     to: dest,
   });
 
   return {
     uri: dest,
-    originalFilename: file.name,
+    originalFilename,
   };
 };

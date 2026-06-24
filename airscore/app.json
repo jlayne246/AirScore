@@ -2,6 +2,7 @@
   "expo": {
     "name": "AirScore",
     "slug": "airscore",
+    "scheme": "airscore",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/adaptive-icon.png",
@@ -21,7 +22,27 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0099FF"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "mimeType": "application/pdf"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "SEND",
+          "data": [
+            {
+              "mimeType": "application/pdf"
+            }
+          ],
+          "category": ["DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

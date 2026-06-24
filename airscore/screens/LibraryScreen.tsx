@@ -12,7 +12,7 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
-import { useNavigation } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import {
@@ -48,6 +48,14 @@ const filterMap: Record<number, FilterOption> = {
   3: 'setlist',
 };
 
+// type LibraryScreenProps = {
+//     pendingImport?: {
+//         uri: string;
+//         originalFilename: string;
+//     }
+// };
+
+
 const LibraryScreen = () => {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList, 'Library'>>();
@@ -57,6 +65,7 @@ const LibraryScreen = () => {
   const [deletedMusicId, setDeletedMusicId] = useState<number | undefined>();
 
   const [pendingPdfUri, setPendingPdfUri] = useState<string | null>(null);
+  const [originalFilename, setOriginalFilename] = useState<string | null>(null);
   const [prefilledTitle, setPrefilledTitle] = useState<string | undefined>();
 
   const [infoboxMode, setInfoboxMode] = useState<'new' | 'edit'>('new');
@@ -73,6 +82,20 @@ const LibraryScreen = () => {
   const sectionListRef = useRef<SectionList<MusicItemWithAllData>>(null);
 
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  const route = useRoute<RouteProp<RootStackParamList, "Library">>();
+
+    useEffect(() => {
+        const pendingImport = route.params?.pendingImport;
+
+        if (!pendingImport) return;
+
+            setPendingPdfUri(pendingImport.uri);
+            setOriginalFilename(pendingImport.originalFilename);
+            setShowMetadataForm(true);
+
+        navigation.setParams({ pendingImport: undefined });
+    }, [route.params?.pendingImport]);
 
   useLayoutEffect(() => {
     navigation.setOptions({

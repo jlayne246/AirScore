@@ -1,5 +1,10 @@
 export type RootStackParamList = {
-  Library: undefined;
+  Library: {
+    pendingImport?: {
+      uri: string;
+      originalFilename: string;
+    };
+  };
   Reader: {
     uri: string;
     musicId: number;

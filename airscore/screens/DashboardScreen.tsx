@@ -278,7 +278,7 @@ const DashboardScreen = ({}) => {
             <View className="flex-row justify-between pt-10 pb-10 mt-4 mb-4 bg-white shadow-md w-[75%] self-center rounded-lg">
                 {/* Library */}
                 <View className="flex-1 justify-center items-center">
-                    <TouchableOpacity className="p-2 m-1 rounded justify-center items-center w-full" onPress={() => navigation.navigate('Library')}>
+                    <TouchableOpacity className="p-2 m-1 rounded justify-center items-center w-full" onPress={() => navigation.navigate('Library', {})}>
                         <MaterialIcons name="library-music" size={48} color="dodgerblue" />
                         <Text className="text-[16px] text-dodger p-1">Library</Text>
                     </TouchableOpacity>

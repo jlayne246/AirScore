@@ -14,6 +14,7 @@ export default ({ config }) => ({
   ...config,
   name: "AirScore",
   slug: "airscore",
+  scheme: "airscore",
   version: "1.0.0",
   orientation: "default",
   icon: "./assets/adaptive-icon.png",
@@ -57,7 +58,7 @@ export default ({ config }) => ({
   plugins: [
       ...(config.plugins || []),
       ...(process.env.USE_DEV_CLIENT === 'true' ? ['expo-dev-client'] : []),
-      "expo-font"
+      "expo-font", "expo-share-intent"
   ]
 });
 
