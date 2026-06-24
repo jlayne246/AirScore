@@ -49,8 +49,16 @@ const MusicItemCard: React.FC<Props> = ({
 
   const creator =
     documentType === "Single Work"
-      ? item.metadata?.composer || "Unknown composer"
-      : item.metadata?.editor || item.metadata?.publisher || documentType;
+        ? item.metadata?.composer
+        ? item.metadata?.arranger
+            ? `${item.metadata.composer} (Arr. ${item.metadata.arranger})`
+            : item.metadata.composer
+        : item.metadata?.arranger
+            ? `Arr. ${item.metadata.arranger}`
+            : "Unknown composer"
+        : item.metadata?.editor ||
+        item.metadata?.publisher ||
+        documentType;
 
   return (
     <TouchableOpacity
@@ -110,25 +118,50 @@ const MusicItemCard: React.FC<Props> = ({
           {item.metadata?.page_count || 0} pages
         </Text>
 
-        {item.metadata?.labels?.length ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8 }}>
-            {item.metadata.labels.slice(0, 3).map((label) => (
-              <View
-                key={label}
-                style={{
-                  backgroundColor: "#F3E8FF",
-                  borderRadius: 999,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  marginRight: 6,
-                  marginBottom: 4,
-                }}
-              >
-                <Text style={{ color: "#7E22CE", fontSize: 12 }}>{label}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
+        <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+        }}>
+            {item.metadata?.genre ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8 }}>
+                    <View
+                        key={item.metadata?.genre}
+                        style={{
+                        backgroundColor: "#eaffe8",
+                        borderRadius: 999,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        marginRight: 6,
+                        marginBottom: 4,
+                        }}
+                    >
+                        <Text style={{ color: "#0b590e", fontSize: 12 }}>{item.metadata?.genre}</Text>
+                    </View>
+                </View>
+                ) : null}
+
+                {item.metadata?.labels?.length ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8 }}>
+                    {item.metadata.labels.slice(0, 3).map((label) => (
+                    <View
+                        key={label}
+                        style={{
+                        backgroundColor: "#F3E8FF",
+                        borderRadius: 999,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        marginRight: 6,
+                        marginBottom: 4,
+                        }}
+                    >
+                        <Text style={{ color: "#7E22CE", fontSize: 12 }}>{label}</Text>
+                    </View>
+                    ))}
+                </View>
+                ) : null}
+        </View>
+        
       </View>
 
       <Menu>

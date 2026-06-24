@@ -1000,7 +1000,7 @@ export const getAllSetlists = async (): Promise<string[]> => {
 };
   
 
-export const getSetlistsForMusic = async (musicId: number): Promise<string[]> => {
+export const getSetlistNamesForMusic = async (musicId: number): Promise<string[]> => {
     const db = await openDatabase();
 
     try {
@@ -1024,6 +1024,58 @@ export const getSetlistsForMusic = async (musicId: number): Promise<string[]> =>
         console.error("Error getting setlists for music:", error);
         return []; // Return default setlist on error
     }
+};
+
+export const getSetlistsForMusicByIds = async (
+  musicId: number
+): Promise<number[]> => {
+  const db = await openDatabase();
+
+  const rows = await db.getAllAsync<{ setlist_id: number }>(
+    `
+    SELECT setlist_id
+    FROM music_setlists
+    WHERE music_id = ?
+    `,
+    [musicId]
+  );
+
+  return rows.map(row => row.setlist_id);
+};
+
+export const setMusicSetlistsByIds = async (
+  musicId: number,
+  setlistIds: number[]
+): Promise<void> => {
+  const db = await openDatabase();
+
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `
+      DELETE FROM music_setlists
+      WHERE music_id = ?
+      `,
+      [musicId]
+    );
+
+    for (let i = 0; i < setlistIds.length; i++) {
+      const setlistId = setlistIds[i];
+
+      await db.runAsync(
+        `
+        INSERT INTO music_setlists (
+          music_id,
+          setlist_id,
+          position,
+          created_at,
+          updated_at
+        )
+        VALUES (?, ?, ?, datetime('now'), datetime('now'))
+        `,
+        [musicId, setlistId, i + 1]
+      );
+    }
+  });
 };
 
 export const getMusicIdsForSetlist = async (

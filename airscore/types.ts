@@ -135,3 +135,29 @@ export type ReaderContext = {
 };
 
 export const ACCENT_COLOR = '#2563EB';
+
+export const GENRE_OPTIONS = [
+  "Organ",
+  "Hymn",
+  "Psalm",
+  "Choral Anthem",
+  "Carol",
+  "Canticle",
+  "Service Music",
+  "Mass Setting",
+  "Motet",
+  "Oratorio",
+  "Sacred Solo",
+  "Instrumental",
+  "Contemporary Worship",
+  "General Sacred",
+];
+
+export interface SetlistSummary {
+  id: number;
+  name: string;
+  description?: string | null;
+  item_count: number;
+  created_at?: string;
+  updated_at?: string;
+}

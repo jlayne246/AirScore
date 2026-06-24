@@ -44,6 +44,7 @@ import {
   ScoreMetadata,
 } from '../types';
 import { activateKeepAwakeAsync } from 'expo-keep-awake';
+import ManageSetlistsModal from './ManageSetlistsModal';
 import MetadataForm from './MetadataForm';
 
 interface BufferedPDFViewerProps {
@@ -246,6 +247,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
     useState(false);
   const [scoreInfoVisible, setScoreInfoVisible] = useState(false);
   const [metadataFormVisible, setMetadataFormVisible] = useState(false);
+  const [manageSetlistsVisible, setManageSetlistsVisible] = useState(false);
 
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
@@ -1121,31 +1123,37 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
               </View>
             </View>
 
-            <InfoSection title="Setlists">
-              <TouchableOpacity
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingVertical: 10,
-                }}
-                onPress={() => {
-                  if (context?.setlistId && context?.setlistName) {
+            <InfoSection title="Current Setlist">
+              {context?.setlistId ? (
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 10,
+                  }}
+                  onPress={() => {
                     navigation.navigate('SetlistDetail', {
-                      setlistId: context?.setlistId!})
-                    }
-                  }
-                }
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Ionicons name="list-outline" size={20} color={ACCENT_COLOR} />
-                  <Text style={{ fontSize: 15 }}>
-                    {context?.setlistName || 'No setlist'}
-                  </Text>
-                </View>
+                      setlistId: context.setlistId,
+                    });
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="list-outline" size={20} color={ACCENT_COLOR} />
+                    <Text style={{ fontSize: 15 }}>
+                      {context.setlistName}
+                    </Text>
+                  </View>
 
-                <Text style={{ color: '#666' }}> {context?.setlistId ? `${context?.currentIndex} of ${context?.totalItems}` : ''} ›</Text>
-              </TouchableOpacity>
+                  <Text style={{ color: '#666' }}>
+                    {context.currentIndex + 1} of {context.totalItems} ›
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={{ color: '#666', paddingVertical: 10 }}>
+                  Open this score from a setlist to see performance context.
+                </Text>
+              )}
             </InfoSection>
 
             <InfoSection title="Labels">
@@ -1185,7 +1193,14 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
                   setMetadataFormVisible(true);
                 }}
               />
-              <ActionRow icon="folder-outline" label="Move to Setlist" />
+              <ActionRow
+                icon="folder-outline"
+                label="Manage Setlists"
+                onPress={() => {
+                  setScoreInfoVisible(false);
+                  setManageSetlistsVisible(true);
+                }}
+              />
               <ActionRow icon="star-outline" label="Add to Favorites" />
               <ActionRow icon="share-outline" label="Export Score" />
             </InfoSection>
@@ -1680,6 +1695,18 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
           </View>
         </View>
       )}
+
+      <ManageSetlistsModal
+        visible={manageSetlistsVisible}
+        musicId={musicId}
+        onClose={() => {
+          setManageSetlistsVisible(false);
+          showChromeTemporarily();
+        }}
+        onSaved={() => {
+          onMetadataUpdated?.({} as any);
+        }}
+      />
 
       {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && !scoreInfoVisible && (
         <GestureDetector gesture={centerTapGesture}>

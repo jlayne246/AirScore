@@ -11,7 +11,7 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import { MusicMetadata, Label, MusicMetadataWithLabels, MetadataFormData, DOCUMENT_TYPES } from '../types';
+import { MusicMetadata, Label, MusicMetadataWithLabels, MetadataFormData, DOCUMENT_TYPES, GENRE_OPTIONS } from '../types';
 import {
   saveCompleteMetadata,
   getMusicWithMetadata,
@@ -19,10 +19,11 @@ import {
   createOrGetLabel,
   getAllSetlists,
   setMusicSetlists,
-  getSetlistsForMusic,
+  getSetlistNamesForMusic,
   addMusicToSetlist,
   metadataExists
 } from '../utils/database';
+import ManageSetlistsModal from '../components/ManageSetlistsModal'
 import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
 
 interface MetadataFormProps {
@@ -70,6 +71,8 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   const [newLabelText, setNewLabelText] = useState('');
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [genreModalVisible, setGenreModalVisible] = useState(false);
+  const [manageSetlistsVisible, setManageSetlistsVisible] = useState(false);
 
   // Setlists state
   const [selectedSetlists, setselectedSetlists] = useState<string[]>([]);
@@ -171,7 +174,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           const metadata = await getMusicWithMetadata(musicId);
           if (metadata) {
             const { labels, ...metadataOnly } = metadata;
-            const itemsetlists = await getSetlistsForMusic(musicId); // Separate function
+            const itemsetlists = await getSetlistNamesForMusic(musicId); // Separate function
             console.log("IN METADATA: ", labels, metadataOnly, itemsetlists);
             setFormData(prev => ({
               ...metadataOnly,
@@ -182,7 +185,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           }
         } else {
           const { labels, ...metadataOnly } = initialData;
-          const itemsetlists = await getSetlistsForMusic(musicId); // Separate function
+          const itemsetlists = await getSetlistNamesForMusic(musicId); // Separate function
           console.log("Initial Data: ", labels, metadataOnly, itemsetlists);
           setFormData(prev => ({
             ...metadataOnly,
@@ -628,13 +631,22 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
             {/* Genre */}
             <View className="my-3">
               <Text className="text-base font-medium text-gray-800 mb-2">Genre</Text>
-              <TextInput
-                className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-                value={formData.genre}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, genre: text }))}
-                placeholder="Enter genre"
-                placeholderTextColor="#9CA3AF"
-              />
+
+              <TouchableOpacity
+                onPress={() => setGenreModalVisible(true)}
+                style={{
+                  backgroundColor: "white",
+                  borderWidth: 1,
+                  borderColor: "#D1D5DB",
+                  borderRadius: 10,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                }}
+              >
+                <Text style={{ fontSize: 16, color: formData.genre ? "#111827" : "#9CA3AF" }}>
+                  {formData.genre || "Select genre"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Document Type */}
@@ -744,12 +756,18 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
                 <Text className="text-base font-medium text-gray-800">Setlists</Text>
 
                 <TouchableOpacity
-                  onPress={() => setShowSetlistModal(true)}
-                  className="bg-blue-500 px-4 py-2 rounded-md"
-                  style={{ minHeight: 36, justifyContent: 'center' }}
+                  onPress={() => setManageSetlistsVisible(true)}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: '#D1D5DB',
+                    borderRadius: 10,
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                    backgroundColor: 'white',
+                  }}
                 >
-                  <Text className="text-white text-sm font-medium leading-none self-center" style={{ lineHeight: 18 }}>
-                    + Add to Setlist
+                  <Text style={{ color: '#2563EB', fontWeight: '700', fontSize: 16 }}>
+                    Manage Setlists
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -812,38 +830,19 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           </ScrollView>
 
           {/* Add Setlist Modal */}
-          <Modal visible={showSetlistModal} transparent animationType="fade">
-            <View className="flex-1 bg-black/50 justify-center items-center">
-              <View className="bg-white rounded-xl p-6 mx-5 w-full max-w-sm">
-                <Text className="text-lg font-semibold text-gray-800 mb-4 text-center">Add New Setlist</Text>
-                <TextInput
-                  className="border border-gray-300 rounded-lg px-4 py-3 text-base mb-5"
-                  value={newSetlistText}
-                  onChangeText={setNewSetlistText}
-                  placeholder="Enter group name"
-                  placeholderTextColor="#9CA3AF"
-                  autoFocus
-                />
-                <View className="flex-row gap-3">
-                  <TouchableOpacity
-                    onPress={() => {
-                      setShowSetlistModal(false);
-                      setNewSetlistText('');
-                    }}
-                    className="flex-1 py-3 rounded-lg border border-gray-300 items-center"
-                  >
-                    <Text className="text-base text-gray-800">Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleAddSetlist}
-                    className="flex-1 bg-blue-500 py-3 rounded-lg items-center"
-                  >
-                    <Text className="text-base text-white font-semibold">Add</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </Modal>
+          {musicId && (
+            <ManageSetlistsModal
+              visible={manageSetlistsVisible}
+              musicId={musicId}
+              onClose={() => setManageSetlistsVisible(false)}
+              onSaved={async () => {
+                setManageSetlistsVisible(false);
+
+                const updatedSetlists = await getSetlistNamesForMusic(musicId);
+                setselectedSetlists(updatedSetlists);
+              }}
+            />
+          )}
 
           {/* Add Label Modal */}
           <Modal visible={showLabelModal} transparent animationType="fade">
@@ -880,6 +879,67 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           </Modal>
         </View>
       </View>
+
+      <Modal visible={genreModalVisible} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.35)",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <View
+            style={{
+              width: "70%",
+              maxWidth: 520,
+              backgroundColor: "white",
+              borderRadius: 18,
+              padding: 20,
+            }}
+          >
+            <Text style={{ fontSize: 22, fontWeight: "700", marginBottom: 16 }}>
+              Select Genre
+            </Text>
+
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {GENRE_OPTIONS.map((genre) => {
+                const selected = formData.genre === genre;
+
+                return (
+                  <TouchableOpacity
+                    key={genre}
+                    onPress={() => {
+                      setFormData((prev) => ({ ...prev, genre }));
+                      setGenreModalVisible(false);
+                    }}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 999,
+                      backgroundColor: selected ? "#2563EB" : "#F3F4F6",
+                    }}
+                  >
+                    <Text style={{ color: selected ? "white" : "#374151", fontWeight: "600" }}>
+                      {genre}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setGenreModalVisible(false)}
+              style={{ marginTop: 20, alignSelf: "flex-end" }}
+            >
+              <Text style={{ color: "#2563EB", fontSize: 16, fontWeight: "700" }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
