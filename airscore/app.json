@@ -29,6 +29,10 @@
           "data": [
             {
               "mimeType": "application/pdf"
+            }, 
+            {
+              "mimeType": "application/pdf",
+              "scheme": "file"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]

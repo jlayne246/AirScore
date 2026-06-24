@@ -770,7 +770,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
               </Text>
 
               <Text style={{ fontSize: 14, color: '#666' }} numberOfLines={1}>
-                {score.document_type === 'Single Work' ? score.composer : score.editor}
+                {score.document_type === 'Single Work' ? `${score.composer} ${score.arranger && `(Arr. ${score.arranger})`}` : score.editor}
               </Text>
 
               {context?.setlistName && (
@@ -1097,7 +1097,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
                 </Text>
 
                 {score.document_type === "Single Work" ? (
-                  <Text style={{ fontWeight: 'bold' }}>{score.composer} </Text>
+                  <Text style={{ fontWeight: 'bold' }}>`${score.composer} ${score.arranger && `(Arr. ${score.arranger})`}`</Text>
                 ) : (
                   <Text style={{ fontWeight: 'bold' }}>{score.editor} </Text>
                 )}

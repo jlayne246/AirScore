@@ -28,14 +28,17 @@
         <data android:scheme="airscore"/>
       </intent-filter>
       <intent-filter>
-        <action android:name="android.intent.action.SEND"/>
-        <data android:mimeType="text/*"/>
+        <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="content" android:mimeType="application/pdf"/>
+        <data android:scheme="file" android:mimeType="application/pdf"/>
       </intent-filter>
+
       <intent-filter>
         <action android:name="android.intent.action.SEND"/>
-        <data android:mimeType="text/*"/>
         <category android:name="android.intent.category.DEFAULT"/>
+        <data android:mimeType="application/pdf"/>
       </intent-filter>
     </activity>
   </application>
