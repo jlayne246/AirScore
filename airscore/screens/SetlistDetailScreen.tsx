@@ -1,17 +1,65 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity } from 'react-native';
-import { MusicItemWithAllData } from '../types';
-import { getMusicIdsForSetlist, getMusicWithAllData } from '../utils/database';
+import { MusicItemWithAllData, Setlist } from '../types';
+import { addMusicToSetlistById, getMusicIdsForSetlist, getMusicWithAllData, getSetlistById } from '../utils/database';
 import MusicItemCard from '../components/MusicItemCard';
+import AddScoreToSetlistModal from '../components/AddScoreToSetlistModal'
 import { Ionicons } from '@expo/vector-icons';
 
 const ACCENT_COLOR = '#2563EB';
 
 const SetlistDetailScreen = ({ route, navigation }: any) => {
-  const { setlistId, setlistName, setlistDescription } = route.params;
+  const { setlistId } = route.params;
 
+  const [setlist, setSetlist] = useState<Setlist | null>(null);
   const [scores, setScores] = useState<MusicItemWithAllData[]>([]);
+  const [allScores, setAllScores] = useState<MusicItemWithAllData[]>([]);
   const [addScoresVisible, setAddScoresVisible] = useState(false);
+
+  useEffect(() => {
+    const loadSetlist = async () => {
+        try {
+            const result = await getSetlistById(setlistId);
+
+            if (result != null)
+                setSetlist(result as Setlist);
+        } catch (err) {
+            console.error("Failed to load setlist", err);
+        }
+    };
+
+    loadSetlist();
+    }, [setlistId]);
+
+    const loadScores = async () => {
+        const ids = await getMusicIdsForSetlist(setlistId);
+        const allMusic = await getMusicWithAllData();
+
+        setAllScores(allMusic);
+
+        const orderedScores = ids
+            .map(id => allMusic.find(m => m.id === id))
+            .filter((item): item is MusicItemWithAllData => !!item);
+
+        setScores(orderedScores);
+    };
+
+    useEffect(() => {
+        loadScores();
+    }, [setlistId]);
+
+    const handleAddScores = async (selectedIds: number[]) => {
+        try {
+            for (const musicId of selectedIds) {
+                await addMusicToSetlistById(musicId, setlistId);
+            }
+
+            setAddScoresVisible(false);
+            await loadScores();
+        } catch (error) {
+            console.error("Failed to add scores to setlist:", error);
+        }
+    };
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -58,9 +106,10 @@ const SetlistDetailScreen = ({ route, navigation }: any) => {
                     style={{
                     fontSize: 24,
                     color: '#111827',
+                    fontWeight: '300',
                     }}
                 >
-                    {setlistName}
+                    {setlist?.name}
                 </Text>
 
                 {/* {!!setlistDescription && (
@@ -92,9 +141,8 @@ const SetlistDetailScreen = ({ route, navigation }: any) => {
         ),
     });
     }, [
-    navigation,
-    setlistName,
-    setlistDescription,
+        navigation,
+        setlist
     ]);
 
   useEffect(() => {
@@ -134,9 +182,9 @@ const SetlistDetailScreen = ({ route, navigation }: any) => {
               {setlistName}
             </Text> */}
 
-            {setlistDescription ? (
+            {setlist?.description ? (
               <Text style={{ fontSize: 20, color: '#6B7280'}}>
-                {setlistDescription}
+                {setlist?.description}
               </Text>
             ) : (
                 <Text style={{ fontSize: 20, color: '#6B7280'}}>
@@ -247,7 +295,8 @@ const SetlistDetailScreen = ({ route, navigation }: any) => {
                     startPage: 1,
                     context: {
                       setlistId,
-                      setlistName,
+                      setlistName: setlist?.name,
+                      setlistDescription: setlist?.description,
                       currentIndex: index,
                       totalItems: scores.length,
                       musicIds,
@@ -301,6 +350,14 @@ const SetlistDetailScreen = ({ route, navigation }: any) => {
           </View>
         }
       />
+
+      <AddScoreToSetlistModal
+        visible={addScoresVisible}
+        scores={allScores}
+        existingMusicIds={musicIds}
+        onClose={() => setAddScoresVisible(false)}
+        onAdd={handleAddScores}
+    />
     </View>
   );
 };

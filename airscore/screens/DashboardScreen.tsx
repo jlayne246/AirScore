@@ -74,7 +74,7 @@ const DashboardScreen = ({}) => {
                           <MenuTrigger>
                             <Ionicons
                               name="ellipsis-vertical"
-                              size={28}
+                              size={24}
                               color="#111827"
                             />
                           </MenuTrigger>

@@ -1132,8 +1132,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
                 onPress={() => {
                   if (context?.setlistId && context?.setlistName) {
                     navigation.navigate('SetlistDetail', {
-                      setlistId: context?.setlistId!,
-                      setlistName: context?.setlistName!})
+                      setlistId: context?.setlistId!})
                     }
                   }
                 }

@@ -53,8 +53,8 @@ const SetlistsScreen = () => {
                     </TouchableOpacity>
                 <Text
                     style={{
-                    fontSize: 28,
-                    // fontWeight: '700',
+                    fontSize: 24,
+                    fontWeight: '300',
                     color: '#111827',
                     }}
                 >
@@ -119,8 +119,6 @@ const SetlistsScreen = () => {
             onPress={() =>
               navigation.navigate('SetlistDetail', {
                 setlistId: item.id,
-                setlistName: item.name,
-                setlistDescription: item.description
               })
             }
             style={{

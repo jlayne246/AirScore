@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, SafeAreaView, Alert } from 'react-native';
-import {Snackbar} from 'react-native-paper';
 
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';

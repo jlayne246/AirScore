@@ -1083,6 +1083,45 @@ export const getSetlistSummaries = async () => {
   `);
 };
 
+export const getSetlistById = async (id: number) => {
+  const db = await openDatabase();
+
+  const result = await db.getFirstAsync<{
+    id: number;
+    name: string;
+    description: string | null;
+    created_at: string;
+  }>(
+    `
+    SELECT
+      id,
+      name,
+      description,
+      created_at
+    FROM setlists
+    WHERE id = ?
+    `,
+    [id]
+  );
+
+  return result ?? null;
+};
+
+export const addMusicToSetlistById = async (
+  musicId: number,
+  setlistId: number
+): Promise<void> => {
+  const db = await openDatabase();
+
+  await db.runAsync(
+    `
+    INSERT OR IGNORE INTO music_setlists (music_id, setlist_id)
+    VALUES (?, ?)
+    `,
+    [musicId, setlistId]
+  );
+};
+
 // BOOKMARK HELPERS
 
 export const addBookmark = async (

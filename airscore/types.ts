@@ -16,8 +16,6 @@ export type RootStackParamList = {
   Setlists: undefined;
   SetlistDetail: {
     setlistId: number;
-    setlistName: string;
-    setlistDescription: string;
   };
 };
 
@@ -130,7 +128,10 @@ export type ScoreMetadata = {
 export type ReaderContext = {
   setlistId: number;
   setlistName: string;
+  setlistDescription?: string;
   currentIndex: number;
   totalItems: number;
   musicIds: number[];
 };
+
+export const ACCENT_COLOR = '#2563EB';

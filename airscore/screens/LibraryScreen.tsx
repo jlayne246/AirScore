@@ -19,6 +19,7 @@ import {
   RootStackParamList,
   MusicItemWithAllData,
   MetadataFormData,
+  ACCENT_COLOR,
 } from '../types';
 
 import { UploadLocalPDF } from '../utils/fileUtils';
@@ -113,8 +114,9 @@ const LibraryScreen = () => {
                       </TouchableOpacity>
                   <Text
                       style={{
-                      fontSize: 28,
+                      fontSize: 24,
                       // fontWeight: '700',
+                      fontWeight: '300',
                       color: '#111827',
                       }}
                   >
