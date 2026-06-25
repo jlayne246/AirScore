@@ -27,6 +27,12 @@ import { RootStackParamList } from './types';
 import { useEffect, useState } from 'react';
 import { initDB } from './utils/database';
 import { importPdfFromUri } from './utils/fileUtils';
+import { importPdfNative } from "./native/AirScorePdfImport";
+
+import { NativeModules } from "react-native";
+
+console.log(NativeModules);
+console.log(NativeModules.AirScorePdfImportModule);
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -123,10 +129,12 @@ export default function App() {
 
         const originalFilename = getTitleFromIncomingUri(url) + ".pdf";
 
-        const imported = await importPdfFromUri(
-          url,
-          originalFilename
-        );
+        // const imported = await importPdfFromUri(
+        //   url,
+        //   originalFilename
+        // );
+
+        const imported = await importPdfNative(url);
 
         console.log("Open-with imported:", imported);
 
