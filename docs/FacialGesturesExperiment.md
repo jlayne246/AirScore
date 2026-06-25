@@ -149,3 +149,76 @@ one tablet test
 ```
 
 If it feels usable, then bring it back into the settings architecture later.
+
+---
+
+Yes — a wink is a better candidate than head turns for your use case.
+
+As an organist, head movement is too natural:
+
+```text
+look at conductor
+look at choir
+look at manuals
+look at stops
+look at pedals
+look back to score
+```
+
+So head-turn detection could create accidental page turns unless it’s heavily gated.
+
+A wink is more intentional because it is less likely to happen during normal playing. I’d test something like:
+
+```text
+right wink → next page
+left wink → previous page
+mouth open / eyebrow raise → toggle controls
+```
+
+But I’d still design safeguards:
+
+```text
+Require one eye closed while the other remains open
+Require gesture duration of maybe 250–600ms
+Ignore normal blinks where both eyes close
+Cooldown after trigger: 1000–1500ms
+Optional calibration
+On-screen “gesture armed” indicator
+```
+
+The logic would be roughly:
+
+```ts
+if (
+  rightEyeClosed &&
+  leftEyeOpen &&
+  heldLongEnough &&
+  cooldownExpired
+) {
+  onNextPage();
+}
+```
+
+The important distinction:
+
+```text
+blink = both eyes close briefly
+wink = one eye closes while the other remains open
+```
+
+So you’d need eye-open probability or facial landmark data.
+
+I’d still do it after Settings, because then the branch can plug into:
+
+```text
+Performance Mode
+  → Input Method
+    → Facial Gestures
+      → Right wink: Next page
+      → Left wink: Previous page
+      → Sensitivity
+      → Cooldown
+```
+
+That makes the proof of concept feel like a natural extension of the app instead of a hardcoded experiment.
+
