@@ -23,6 +23,8 @@ const DashboardScreen = ({}) => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const [selectedMusicId, setSelectedMusicId] = useState<number | undefined>();
     const [pendingPdfUri, setPendingPdfUri] = useState<string | null>(null);
+    const [pendingOriginalFilename, setPendingOriginalFilename] =
+        useState<string>("Imported PDF.pdf");
     const [prefilledTitle, setPrefilledTitle] = useState<string | undefined>();
     const [infoboxMode, setInfoboxMode] = useState<string>("new");
     const [showMetadataForm, setShowMetadataForm] = useState(false);
@@ -135,6 +137,7 @@ const DashboardScreen = ({}) => {
             const title = raw_title.replace('.pdf', '');
         
             setPendingPdfUri(uri.uri);              // store the file path
+            setPendingOriginalFilename(uri.originalFilename);
             setPrefilledTitle(title);          // prefill title for metadata form
             setInfoboxMode("new"); 
             setShowMetadataForm(true);         // show metadata form
@@ -211,6 +214,7 @@ const DashboardScreen = ({}) => {
             const insertedId = await insertMusic(
                 formData.title,
                 pendingPdfUri,
+                pendingOriginalFilename,
                 cleanSetlists,
                 now
             );

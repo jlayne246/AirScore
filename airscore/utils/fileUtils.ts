@@ -47,6 +47,8 @@ export const importPdfFromUri = async (
     to: dest,
   });
 
+  console.log(`Upload URI: ${dest} Upload Name: ${originalFilename}`)
+
   return {
     uri: dest,
     originalFilename,

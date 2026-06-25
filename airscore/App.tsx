@@ -42,6 +42,11 @@ export default function App() {
     const [dbReady, setDbReady] = useState(false);
     const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntent();
 
+    console.log("Share intent state:", {
+        hasShareIntent,
+        shareIntent,
+    });
+
     useEffect(() => {
       const start = async () => {
         try {
@@ -63,12 +68,28 @@ export default function App() {
 
         if (!file || file.mimeType !== "application/pdf") return;
 
+        console.log("Share file object:", JSON.stringify(file, null, 2));
+
+        const originalFilename =
+          file.fileName ||
+          // file.filename ||
+          // file.name ||
+          file.path?.split("/").pop() ||
+          "Imported PDF.pdf";
+
         const imported = await importPdfFromUri(
           file.path,
-          file.fileName ?? "Imported PDF.pdf"
+          originalFilename
         );
 
+        console.log("Incoming URL:", imported.originalFilename, imported.uri);
+
         resetShareIntent();
+
+        console.log("Navigating with:", {
+          uri: imported.uri,
+          originalFilename: imported.originalFilename,
+        });
 
         if (navigationRef.isReady()) {
           navigationRef.navigate("Library", {
@@ -84,16 +105,30 @@ export default function App() {
       handleSharedPdf();
     }, [dbReady, hasShareIntent, shareIntent]);
 
+    const getTitleFromIncomingUri = (url: string) => {
+      const lastPart = decodeURIComponent(url.split("/").pop() ?? "");
+
+      if (!lastPart || lastPart.startsWith("msf:")) {
+        return "Imported PDF";
+      }
+
+      return lastPart.replace(/\.pdf$/i, "");
+    };
+
     useEffect(() => {
+      if (!dbReady) return;
+
       const handleUrl = async (url: string) => {
         console.log("Incoming URL:", url);
 
-        if (!url.toLowerCase().includes(".pdf")) return;
+        const originalFilename = getTitleFromIncomingUri(url) + ".pdf";
 
         const imported = await importPdfFromUri(
           url,
-          decodeURIComponent(url.split("/").pop() ?? "Imported PDF.pdf")
+          originalFilename
         );
+
+        console.log("Open-with imported:", imported);
 
         if (navigationRef.isReady()) {
           navigationRef.navigate("Library", {
@@ -102,7 +137,6 @@ export default function App() {
               originalFilename: imported.originalFilename,
             },
           });
-          // Later: navigate to metadata import screen
         }
       };
 
@@ -115,7 +149,7 @@ export default function App() {
       });
 
       return () => subscription.remove();
-    }, []);
+    }, [dbReady]);
 
     if (!dbReady) {
       return (

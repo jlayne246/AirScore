@@ -294,6 +294,7 @@ export const markMusicAsOpened = async (musicId: number): Promise<void> => {
 export const insertMusic = async (
   title: string,
   uri: string,
+  originalFileName: string,
   setlistNames: string[],
   created_at: string
 ) : Promise<number> => {
@@ -311,7 +312,7 @@ export const insertMusic = async (
 
         // Insert the music item
         const musicResult = await db.runAsync(
-            'INSERT INTO music (title, uri, created_at) VALUES (?, ?, ?)', [title, uri, created]
+            'INSERT INTO music (title, uri, original_filename, created_at) VALUES (?, ?, ?, ?)', [title, uri, originalFileName, created]
         );
 
         const musicId = musicResult.lastInsertRowId;

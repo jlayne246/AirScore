@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -12,7 +12,7 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import {
@@ -65,7 +65,7 @@ const LibraryScreen = () => {
   const [deletedMusicId, setDeletedMusicId] = useState<number | undefined>();
 
   const [pendingPdfUri, setPendingPdfUri] = useState<string | null>(null);
-  const [originalFilename, setOriginalFilename] = useState<string | null>(null);
+  const [originalFilename, setOriginalFilename] = useState<string>("Imported PDF.pdf");
   const [prefilledTitle, setPrefilledTitle] = useState<string | undefined>();
 
   const [infoboxMode, setInfoboxMode] = useState<'new' | 'edit'>('new');
@@ -90,12 +90,31 @@ const LibraryScreen = () => {
 
         if (!pendingImport) return;
 
-            setPendingPdfUri(pendingImport.uri);
-            setOriginalFilename(pendingImport.originalFilename);
-            setShowMetadataForm(true);
+        const filename =
+            pendingImport.originalFilename ?? "Imported PDF.pdf";
+
+        const title = filename.replace(/\.pdf$/i, "");
+
+        setPendingPdfUri(pendingImport.uri);
+        setOriginalFilename(filename);
+        setPrefilledTitle(title);
+        setSelectedMusicId(undefined);
+        setInfoboxMode("new");
+        setShowMetadataForm(true);
 
         navigation.setParams({ pendingImport: undefined });
     }, [route.params?.pendingImport]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadMusic();
+        }, [])
+    );
+
+    useEffect(() => {
+        initDB();
+        loadMusic();
+    }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -166,14 +185,11 @@ const LibraryScreen = () => {
     });
     }, [navigation]);
 
-  useEffect(() => {
-    initDB();
-    loadMusic();
-  }, []);
 
   const loadMusic = async () => {
     try {
       const results = await getMusicWithAllData();
+      console.log(`Music loaded: ${results.length}`)
       setMusicList(results);
     } catch (error) {
       console.error('Failed to load music:', error);
@@ -194,7 +210,11 @@ const LibraryScreen = () => {
     const rawTitle = uri.originalFilename.split('/').pop() || 'Untitled';
     const title = rawTitle.replace('.pdf', '');
 
+    console.log("URI: ", uri);
+    console.log("title: ", title);
+
     setPendingPdfUri(uri.uri);
+    setOriginalFilename(uri.originalFilename);
     setPrefilledTitle(title);
     setSelectedMusicId(undefined);
     setInfoboxMode('new');
@@ -257,9 +277,12 @@ const LibraryScreen = () => {
           (setlist) => setlist !== 'Ungrouped'
         );
 
+        console.log("Saving original filename:", originalFilename);
+
         const insertedId = await insertMusic(
           formData.title,
           pendingPdfUri,
+          originalFilename,
           cleanSetlists,
           now
         );
@@ -282,6 +305,8 @@ const LibraryScreen = () => {
           },
           formData.labels || []
         );
+
+        await loadMusic();
 
         navigation.navigate('Reader', {
           uri: pendingPdfUri,
