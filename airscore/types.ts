@@ -22,6 +22,7 @@ export type RootStackParamList = {
   SetlistDetail: {
     setlistId: number;
   };
+  Settings: undefined;
 };
 
 // Define types for music items
@@ -167,3 +168,5 @@ export interface SetlistSummary {
   created_at?: string;
   updated_at?: string;
 }
+
+

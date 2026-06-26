@@ -11,6 +11,8 @@ import { RouteProp } from '@react-navigation/native';
 import { MusicMetadataWithLabels, ReaderContext, RootStackParamList } from '../types';
 import { getMusicWithAllData, getMusicWithMetadata, markMusicAsOpened, saveSetlistProgress } from '../utils/database';
 import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
+import { getResolvedReaderSettings } from '../utils/settings/resolver';
+import { ReaderSettings } from '../utils/settings/types';
 
 type ReaderScreenProps = {
     route: RouteProp<RootStackParamList, 'Reader'>;
@@ -27,6 +29,19 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
     const [music, setMusic] = useState<any>(null);
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
+    const [settings, setSettings] = useState<ReaderSettings>()
+
+    useEffect(() => {
+        (async () => {
+            const resolved = await getResolvedReaderSettings(
+                musicId,
+                context?.setlistId
+            );
+
+            setSettings(resolved);
+        })();
+    }, [musicId, context?.setlistId])
+    
 
     const showToast = (message: string) => {
         setToastMessage(message);
@@ -88,14 +103,6 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
         });
     };
 
-    if (!uri) {
-        return <Text>No PDF selected.</Text>;
-    }
-
-    if (!musicId) {
-        return <Text>No PDF selected.</Text>;
-    }
-
     React.useLayoutEffect(() => {
         navigation.setOptions({
             headerShown: false,
@@ -107,6 +114,22 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
             markMusicAsOpened(musicId);
         }
     }, [musicId]);
+
+    if (!uri) {
+        return <Text>No PDF selected.</Text>;
+    }
+
+    if (!musicId) {
+        return <Text>No PDF selected.</Text>;
+    }
+
+    if (!settings || !music) {
+        return (
+            <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <Text>Opening score...</Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={{ flex: 1 }}>
@@ -143,6 +166,7 @@ const ReaderScreen = ({ route }: ReaderScreenProps) => {
                 }
                 context={context}
                 initialPage={startPage}
+                settings={settings}
             />
 
             {toastVisible && (

@@ -112,7 +112,7 @@ const LibraryScreen = () => {
     );
 
     useEffect(() => {
-        initDB();
+        // initDB();
         loadMusic();
     }, []);
 

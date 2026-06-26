@@ -17,6 +17,7 @@ import ReaderScreen from './screens/ReaderScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import SetlistsScreen from './screens/SetlistsScreen';
 import SetlistDetailScreen from './screens/SetlistDetailScreen';
+import SettingsScreen from './screens/SettingsScreen';
 
 import DevToolsButton from "./components/DevToolsButton";
 import TestComponent from "./components/TestTailwind";
@@ -190,6 +191,7 @@ export default function App() {
                   />
                   <Stack.Screen name="Setlists" component={SetlistsScreen} />
                   <Stack.Screen name="SetlistDetail" component={SetlistDetailScreen} />
+                  <Stack.Screen name="Settings" component={SettingsScreen} />
                 </Stack.Navigator>
               </NavigationContainer>
             </MenuProvider>

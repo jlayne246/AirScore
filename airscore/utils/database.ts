@@ -28,7 +28,7 @@ import {
 let _db: SQLite.SQLiteDatabase | null = null;
 let _initPromise: Promise<void> | null = null;
 
-const openDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
+export const openDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
     if (_db) return _db;
 
     _db = await SQLite.openDatabaseAsync('airscore.db');
@@ -154,6 +154,44 @@ export const initDB = async (): Promise<void> => {
         );
       `);
 
+      console.log("DB init: creating reader_settings table");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS reader_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+      `);
+
+      console.log("DB init: creating setlist_settings table");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS setlist_settings (
+          setlist_id INTEGER,
+          key TEXT,
+          value TEXT,
+
+          PRIMARY KEY(setlist_id, key),
+
+          FOREIGN KEY(setlist_id)
+              REFERENCES setlists(id)
+              ON DELETE CASCADE
+        );
+      `);
+
+      console.log("DB init: creating music_settings table");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS music_settings (
+          music_id INTEGER,
+          key TEXT,
+          value TEXT,
+
+          PRIMARY KEY(music_id, key),
+
+          FOREIGN KEY(music_id)
+              REFERENCES music(id)
+              ON DELETE CASCADE
+        );
+      `);
+
       console.log("DB init: creating duplicate metadata index");
       await db.execAsync(`
         CREATE UNIQUE INDEX IF NOT EXISTS idx_music_metadata_title_composer
@@ -161,6 +199,7 @@ export const initDB = async (): Promise<void> => {
       `);
 
       await ensureColumn(
+        db,
         "music_metadata",
         "document_type",
         `
@@ -170,6 +209,7 @@ export const initDB = async (): Promise<void> => {
       );
 
       await ensureColumn(
+        db,
         "music_metadata",
         "editor",
         `
@@ -179,6 +219,7 @@ export const initDB = async (): Promise<void> => {
       );
 
       await ensureColumn(
+        db,
         "music_metadata",
         "publisher",
         `
@@ -188,6 +229,7 @@ export const initDB = async (): Promise<void> => {
       );
 
       await ensureColumn(
+        db,
         "music_metadata",
         "arranger",
         `
@@ -197,6 +239,7 @@ export const initDB = async (): Promise<void> => {
       );
 
       await ensureColumn(
+        db,
         "music",
         "original_filename",
         `
@@ -231,6 +274,7 @@ export const initDB = async (): Promise<void> => {
       // );
 
       await ensureColumn(
+        db,
         "music",
         "updated_at",
         `
@@ -251,11 +295,12 @@ export const initDB = async (): Promise<void> => {
 };
 
 async function ensureColumn(
+  db: SQLite.SQLiteDatabase,
   tableName: string,
   columnName: string,
   addColumnSql: string
 ) {
-  const db = await openDatabase();
+  // const db = await openDatabase();
 
   const columns = await db.getAllAsync<{ name: string }>(
     `PRAGMA table_info(${tableName});`

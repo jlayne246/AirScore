@@ -48,6 +48,7 @@ import { activateKeepAwakeAsync } from 'expo-keep-awake';
 import ManageSetlistsModal from './ManageSetlistsModal';
 import MetadataForm from './MetadataForm';
 import { saveSetlistProgress } from "../utils/database";
+import { ReaderSettings } from '../utils/settings/types';
 
 interface BufferedPDFViewerProps {
   uri: string;
@@ -67,6 +68,8 @@ interface BufferedPDFViewerProps {
   onPageChange?: () => void;
 
   initialPage?: number;
+
+  settings: ReaderSettings;
 }
 
 const ACCENT_COLOR = '#2563EB';
@@ -218,7 +221,7 @@ function ActionRow({
   );
 }
 
-const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetadataUpdated, onNextScore, onPreviousScore, onNextScoreFromPageTurn, onPreviousScoreFromPageTurn }: BufferedPDFViewerProps) => {
+const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings, onMetadataUpdated, onNextScore, onPreviousScore, onNextScoreFromPageTurn, onPreviousScoreFromPageTurn }: BufferedPDFViewerProps) => {
   const pagerRef = useRef<PagerView>(null);
   const renderingPages = useRef<Set<number>>(new Set());
   const pageImagesRef = useRef<Record<number, string>>({});
@@ -1764,7 +1767,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
         </GestureDetector>
       )}
 
-      {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && !scoreInfoVisible && (
+      {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && !scoreInfoVisible && settings.tapZones && (
         <>
           {/* left Pressable */}
 
@@ -1777,7 +1780,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
               width: '7%',
               zIndex: 999,
               elevation: 999,
-              // backgroundColor: 'rgba(255, 0, 0, 0.12)',
+              backgroundColor: 'rgba(255, 0, 0, 0.12)',
             }}
             onPress={() => {
               const previousPage = currentPage - pageStep;
@@ -1802,7 +1805,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
               width: '7%',
               zIndex: 999,
               elevation: 999,
-              // backgroundColor: 'rgba(255, 0, 0, 0.12)',
+              backgroundColor: 'rgba(255, 0, 0, 0.12)',
             }}
             onPress={() => {
               console.log("Right tap zone pressed", {

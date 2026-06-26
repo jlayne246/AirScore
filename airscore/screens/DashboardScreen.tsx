@@ -82,8 +82,8 @@ const DashboardScreen = ({}) => {
                           </MenuTrigger>
                         
                           <MenuOptions>
-                            {/* <MenuOption style={styles.menuOption} onSelect={() => navigation.navigate('Settings')}> */}
-                            <MenuOption style={styles.menuOption} onSelect={() => Alert.alert('Coming Soon')}>
+                            <MenuOption style={styles.menuOption} onSelect={() => navigation.navigate('Settings')}>
+                            {/* <MenuOption style={styles.menuOption} onSelect={() => Alert.alert('Coming Soon')}> */}
                               <Text style={styles.menuItem}>Settings</Text>
                             </MenuOption>
                         
@@ -97,7 +97,7 @@ const DashboardScreen = ({}) => {
                         
                             {/* <MenuOption style={styles.menuOption} onSelect={() => navigation.navigate('About')}> */}
                             <MenuOption style={styles.menuOption} onSelect={() => Alert.alert('Coming Soon')}>
-                              <Text style={styles.menuItem}>About AIRScore</Text>
+                              <Text style={styles.menuItem}>About AirScore</Text>
                             </MenuOption>
                           </MenuOptions>
                         </Menu>
