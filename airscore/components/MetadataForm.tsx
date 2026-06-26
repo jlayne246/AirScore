@@ -73,6 +73,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [genreModalVisible, setGenreModalVisible] = useState(false);
   const [manageSetlistsVisible, setManageSetlistsVisible] = useState(false);
+  const [showNewSetlistForm, setShowNewSetlistForm] = useState(false);
 
   // Setlists state
   const [selectedSetlists, setselectedSetlists] = useState<string[]>([]);
@@ -360,22 +361,20 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   };
 
   const handleAddSetlist = () => {
-    if (!newSetlistText.trim()) return;
+    const setlistName = newSetlistText.trim();
 
-    const groupName = newSetlistText.trim();
+    if (!setlistName) return;
 
-    // Add to available setlists if not already there
-    if (!availableSetlists.includes(groupName)) {
-      setavailableSetlists(prev => [...prev, groupName]);
+    if (!availableSetlists.includes(setlistName)) {
+      setavailableSetlists(prev => [...prev, setlistName]);
     }
 
-    // Add to selected setlists if not already selected
-    if (!selectedSetlists.includes(groupName)) {
-      setselectedSetlists(prev => [...prev, groupName]);
+    if (!selectedSetlists.includes(setlistName)) {
+      setselectedSetlists(prev => [...prev, setlistName]);
     }
 
     setNewSetlistText('');
-    setShowSetlistModal(false);
+    setShowNewSetlistForm(false);
   };
 
   const toggleSetlist = (groupName: string) => {
@@ -753,35 +752,115 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
             {/* setlists */}
             <View className="my-3">
               <View className="flex-row justify-between items-center mb-2">
-                <Text className="text-base font-medium text-gray-800">Setlists</Text>
+                <Text className="text-base font-medium text-gray-800">
+                  Setlists
+                </Text>
 
-                <TouchableOpacity
-                  onPress={() => setManageSetlistsVisible(true)}
+                {!showNewSetlistForm && (
+                  <TouchableOpacity
+                    onPress={() => setShowNewSetlistForm(true)}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: "#D1D5DB",
+                      borderRadius: 10,
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      backgroundColor: "white",
+                    }}
+                  >
+                    <Text style={{ color: "#2563EB", fontWeight: "700", fontSize: 16 }}>
+                      + New Setlist
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {showNewSetlistForm && (
+                <View
                   style={{
+                    backgroundColor: "white",
                     borderWidth: 1,
-                    borderColor: '#D1D5DB',
-                    borderRadius: 10,
-                    paddingHorizontal: 14,
-                    paddingVertical: 12,
-                    backgroundColor: 'white',
+                    borderColor: "#E5E7EB",
+                    borderRadius: 12,
+                    padding: 12,
+                    marginBottom: 12,
                   }}
                 >
-                  <Text style={{ color: '#2563EB', fontWeight: '700', fontSize: 16 }}>
-                    Manage Setlists
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                  <TextInput
+                    value={newSetlistText}
+                    onChangeText={setNewSetlistText}
+                    placeholder="Add new setlist name here"
+                    placeholderTextColor="#9CA3AF"
+                    autoFocus
+                    style={{
+                      borderWidth: 1,
+                      borderColor: "#D1D5DB",
+                      borderRadius: 10,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      fontSize: 16,
+                      color: "#111827",
+                      marginBottom: 10,
+                    }}
+                  />
+
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "flex-end",
+                      gap: 10,
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowNewSetlistForm(false);
+                        setNewSetlistText("");
+                      }}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <Text style={{ color: "#6B7280", fontWeight: "600" }}>
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={handleAddSetlist}
+                      style={{
+                        backgroundColor: "#2563EB",
+                        borderRadius: 10,
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <Text style={{ color: "white", fontWeight: "700" }}>
+                        Create
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               <View className="flex-row flex-wrap gap-2">
                 {availableSetlists.map(group => (
                   <TouchableOpacity
                     key={group}
-                    className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedSetlists.includes(group) ? 'bg-blue-500 border-blue-500' : ''
-                      }`}
+                    className={`border rounded-full py-1.5 px-3 ${
+                      selectedSetlists.includes(group)
+                        ? "bg-blue-500 border-blue-500"
+                        : "bg-white border-gray-300"
+                    }`}
                     onPress={() => toggleSetlist(group)}
                   >
-                    <Text className={`text-sm ${selectedSetlists.includes(group) ? 'text-white' : 'text-gray-800'
-                      }`}>
+                    <Text
+                      className={`text-sm ${
+                        selectedSetlists.includes(group)
+                          ? "text-white"
+                          : "text-gray-800"
+                      }`}
+                    >
                       {group}
                     </Text>
                   </TouchableOpacity>
@@ -790,7 +869,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
 
               {selectedSetlists.length === 0 && (
                 <Text className="text-sm text-gray-500 mt-2 italic">
-                  No setlists selected. Item will be placed in "Ungrouped".
+                  No setlists selected.
                 </Text>
               )}
             </View>
@@ -830,7 +909,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           </ScrollView>
 
           {/* Add Setlist Modal */}
-          {musicId && (
+          {/* {musicId && (
             <ManageSetlistsModal
               visible={manageSetlistsVisible}
               musicId={musicId}
@@ -842,7 +921,8 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
                 setselectedSetlists(updatedSetlists);
               }}
             />
-          )}
+          )} */}
+          
 
           {/* Add Label Modal */}
           <Modal visible={showLabelModal} transparent animationType="fade">

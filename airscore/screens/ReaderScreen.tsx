@@ -9,7 +9,7 @@ import BufferedPDFViewer from '../components/BufferedPDFViewer';
 
 import { RouteProp } from '@react-navigation/native';
 import { MusicMetadataWithLabels, ReaderContext, RootStackParamList } from '../types';
-import { getMusicWithAllData, getMusicWithMetadata, markMusicAsOpened } from '../utils/database';
+import { getMusicWithAllData, getMusicWithMetadata, markMusicAsOpened, saveSetlistProgress } from '../utils/database';
 import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
 
 type ReaderScreenProps = {

@@ -16,6 +16,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { AppState, AppStateStatus } from "react-native";
 import {
   Menu,
   MenuOptions,
@@ -46,6 +47,7 @@ import {
 import { activateKeepAwakeAsync } from 'expo-keep-awake';
 import ManageSetlistsModal from './ManageSetlistsModal';
 import MetadataForm from './MetadataForm';
+import { saveSetlistProgress } from "../utils/database";
 
 interface BufferedPDFViewerProps {
   uri: string;
@@ -61,6 +63,8 @@ interface BufferedPDFViewerProps {
   onNextScore?: () => void;
   onPreviousScoreFromPageTurn?: () => void;
   onNextScoreFromPageTurn?: () => void;
+
+  onPageChange?: () => void;
 
   initialPage?: number;
 }
@@ -283,6 +287,16 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
   console.log("BufferedPDFViewer context:", context);
   // const buffer = getBuffer(effectiveDisplayMode);
 
+  const saveCurrentSetlistProgress = useCallback(async () => {
+    if (!context?.setlistId || !musicId) return;
+
+    await saveSetlistProgress(
+      context.setlistId,
+      musicId,
+      currentPage
+    );
+  }, [context?.setlistId, musicId, currentPage]);
+
   const getPagerIndexForPage = useCallback(
     (page: number) => {
       if (effectiveDisplayMode === 'single') return page - 1;
@@ -444,6 +458,25 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
   //   pinch,
   //   longPress
   // );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextState: AppStateStatus) => {
+        if (nextState === "background") {
+          saveCurrentSetlistProgress();
+        }
+      }
+    );
+
+    return () => subscription.remove();
+  }, [saveCurrentSetlistProgress]);
+
+  useEffect(() => {
+    return () => {
+      saveCurrentSetlistProgress();
+    };
+  }, [saveCurrentSetlistProgress]);
 
   useEffect(() => {
     const checkBookmark = async () => {
@@ -951,7 +984,10 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
           {context?.setlistId ? (
             <TouchableOpacity
               style={{ alignItems: 'center' }}
-              onPress={onPreviousScore}
+              onPress={async () => {
+                await saveCurrentSetlistProgress();
+                onPreviousScore?.();
+              }}
             >
               <Ionicons name="arrow-back" size={28} color={ACCENT_COLOR} />
               <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>
@@ -1008,7 +1044,10 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
             <TouchableOpacity
               style={{ alignItems: 'center' }}
               // onPress={() => goToPage(currentPage + pageStep)}
-              onPress={onNextScore}
+              onPress={async () => {
+                await saveCurrentSetlistProgress();
+                onNextScore?.();
+              }}
             >
               <Ionicons name="arrow-forward" size={28} color={ACCENT_COLOR} />
               <Text style={{ fontSize: 14, color: ACCENT_COLOR }}>Next Score</Text>
@@ -1776,7 +1815,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, onMetada
               const nextPage = currentPage + pageStep;
 
               if (nextPage > totalPages) {
-                console.log("Calling next score");
+                saveCurrentSetlistProgress();
                 onNextScoreFromPageTurn?.();
                 return;
               }

@@ -87,6 +87,18 @@ export const initDB = async (): Promise<void> => {
         );
       `);
 
+      console.log("DB init: creating setlist_progress table");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS setlist_progress (
+          setlist_id INTEGER PRIMARY KEY,
+          music_id INTEGER NOT NULL,
+          page_number INTEGER DEFAULT 1,
+          updated_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (setlist_id) REFERENCES setlists(id) ON DELETE CASCADE,
+          FOREIGN KEY (music_id) REFERENCES music(id) ON DELETE CASCADE
+        );
+      `);
+
       console.log("DB init: creating music_metadata table");
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS music_metadata (
@@ -1190,6 +1202,98 @@ export const addMusicToSetlistById = async (
     `,
     [musicId, setlistId]
   );
+};
+
+export const removeMusicFromSetlistById = async (
+  musicId: number,
+  setlistId: number
+): Promise<void> => {
+  const db = await openDatabase();
+
+  await db.runAsync(
+    `
+    DELETE FROM music_setlists
+    WHERE music_id = ?
+      AND setlist_id = ?
+    `,
+    [musicId, setlistId]
+  );
+};
+
+export const saveSetlistProgress = async (
+  setlistId: number,
+  musicId: number,
+  currentPage: number
+): Promise<void> => {
+  const db = await openDatabase();
+
+  const safePage = Math.max(1, currentPage);
+
+  await db.runAsync(
+    `
+    INSERT INTO setlist_progress (
+      setlist_id,
+      music_id,
+      page_number,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?)
+
+    ON CONFLICT(setlist_id)
+    DO UPDATE SET
+      music_id = excluded.music_id,
+      page_number = excluded.page_number,
+      updated_at = excluded.updated_at
+    `,
+    [setlistId, musicId, safePage, new Date().toISOString()]
+  );
+};
+
+export const getSetlistProgress = async (
+  setlistId: number
+): Promise<{
+  setlist_id: number;
+  music_id: number;
+  page_number: number;
+  updated_at: string;
+} | null> => {
+  const db = await openDatabase();
+
+  const row = await db.getFirstAsync<{
+    setlist_id: number;
+    music_id: number;
+    page_number: number;
+    updated_at: string;
+  }>(
+    `
+    SELECT setlist_id, music_id, page_number, updated_at
+    FROM setlist_progress
+    WHERE setlist_id = ?
+    `,
+    [setlistId]
+  );
+
+  return row ?? null;
+};
+
+export const updateSetlistOrder = async (
+  setlistId: number,
+  musicIds: number[]
+): Promise<void> => {
+  const db = await openDatabase();
+
+  await db.withTransactionAsync(async () => {
+    for (let i = 0; i < musicIds.length; i++) {
+      await db.runAsync(
+        `
+        UPDATE music_setlists
+        SET position = ?, updated_at = datetime('now')
+        WHERE setlist_id = ? AND music_id = ?
+        `,
+        [i + 1, setlistId, musicIds[i]]
+      );
+    }
+  });
 };
 
 // BOOKMARK HELPERS
