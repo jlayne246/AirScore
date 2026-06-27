@@ -121,6 +121,7 @@ const SettingsScreen = () => {
           onValueChange={value =>
             updateGlobalSetting("keepScreenAwake", value)
           }
+          icon="moon-outline"
         />
 
         <SettingsToggleRow
@@ -130,6 +131,7 @@ const SettingsScreen = () => {
           onValueChange={value =>
             updateGlobalSetting("resumeLastPage", value)
           }
+          icon="bookmark-outline"
         />
 
         <SettingsToggleRow
@@ -139,6 +141,7 @@ const SettingsScreen = () => {
           onValueChange={value =>
             updateGlobalSetting("autoHideControls", value)
           }
+          icon="eye-off-outline"
         />
       </SettingsSection>
 
@@ -150,6 +153,7 @@ const SettingsScreen = () => {
           onValueChange={value =>
             updateGlobalSetting("tapZones", value)
           }
+          icon="hand-left-outline"
         />
 
         <SettingsToggleRow
@@ -159,6 +163,7 @@ const SettingsScreen = () => {
           onValueChange={value =>
             updateGlobalSetting("swipeNavigation", value)
           }
+          icon="swap-horizontal-outline"
         />
 
         <SettingsSegmentedRow
@@ -173,6 +178,7 @@ const SettingsScreen = () => {
             onValueChange={value =>
                 updateGlobalSetting("pageAnimation", value)
             }
+            icon="layers-outline"
         />
       </SettingsSection>
 
@@ -188,6 +194,7 @@ const SettingsScreen = () => {
             onValueChange={value =>
                 updateGlobalSetting("viewMode", value)
             }
+            icon="albums-outline"
         />
         <SettingsToggleRow
           title="Cover Offset"
@@ -196,6 +203,7 @@ const SettingsScreen = () => {
           onValueChange={value =>
             updateGlobalSetting("coverOffset", value)
           }
+          icon="book-outline"
         />
       </SettingsSection>
 
@@ -207,6 +215,7 @@ const SettingsScreen = () => {
           onValueChange={value =>
             updateGlobalSetting("performanceMode", value)
           }
+          icon="flash-outline"
         />
 
         <SettingsToggleRow
@@ -216,6 +225,7 @@ const SettingsScreen = () => {
           onValueChange={value =>
             updateGlobalSetting("facialGestures", value)
           }
+          icon="happy-outline"
         />
       </SettingsSection>
     </ScrollView>

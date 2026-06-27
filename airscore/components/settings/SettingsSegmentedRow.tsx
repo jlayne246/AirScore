@@ -1,6 +1,8 @@
 // components/settings/SettingsSegmentedRow.tsx
 
 import { Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { ACCENT_COLOR } from "../../types";
 
 type Option<T extends string> = {
   label: string;
@@ -8,6 +10,7 @@ type Option<T extends string> = {
 };
 
 type Props<T extends string> = {
+  icon?: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle?: string;
   value: T;
@@ -16,6 +19,7 @@ type Props<T extends string> = {
 };
 
 const SettingsSegmentedRow = <T extends string>({
+  icon,
   title,
   subtitle,
   value,
@@ -24,15 +28,35 @@ const SettingsSegmentedRow = <T extends string>({
 }: Props<T>) => {
   return (
     <View style={{ padding: 16 }}>
-      <Text style={{ fontSize: 16, fontWeight: "600" }}>
-        {title}
-      </Text>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 12,
+          marginBottom: 10,
+        }}
+      >
+        {icon && (
+          <Ionicons
+            name={icon}
+            size={22}
+            color={ACCENT_COLOR}
+            style={{ width: 26, marginTop: 1 }}
+          />
+        )}
 
-      {subtitle && (
-        <Text style={{ color: "#666", marginTop: 2, marginBottom: 10 }}>
-          {subtitle}
-        </Text>
-      )}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
+            {title}
+          </Text>
+
+          {subtitle && (
+            <Text style={{ color: "#6B7280", marginTop: 2 }}>
+              {subtitle}
+            </Text>
+          )}
+        </View>
+      </View>
 
       <View
         style={{
@@ -60,7 +84,7 @@ const SettingsSegmentedRow = <T extends string>({
               <Text
                 style={{
                   fontWeight: "700",
-                  color: selected ? "#2563EB" : "#6B7280",
+                  color: selected ? ACCENT_COLOR : "#6B7280",
                 }}
               >
                 {option.label}
