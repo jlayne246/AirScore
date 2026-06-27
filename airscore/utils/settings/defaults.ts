@@ -16,13 +16,13 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
 
     gestureControls: false,
 
-    restoreLastPage: true,
+    // restoreLastPage: true,
 
     swipeNavigation: true,
 
     facialGestures: false,
 
     resumeLastPage: true,
-    
+
     coverOffset: false,
 };

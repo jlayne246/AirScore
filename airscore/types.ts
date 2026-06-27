@@ -143,6 +143,19 @@ export type ReaderContext = {
 
 export const ACCENT_COLOR = '#2563EB';
 
+export const COLORS = {
+  accent: ACCENT_COLOR,
+  accentLight: "#93C5FD",
+  accentVeryLight: "#DBEAFE",
+
+  text: "#111827",
+  secondaryText: "#6B7280",
+
+  border: "#E5E7EB",
+  background: "#FFFFFF",
+  pageBackground: "#F9FAFB",
+};
+
 export const GENRE_OPTIONS = [
   "Organ",
   "Hymn",

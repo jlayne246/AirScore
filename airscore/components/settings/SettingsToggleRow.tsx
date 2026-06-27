@@ -1,4 +1,5 @@
 import { Switch, View, Text } from "react-native";
+import { ACCENT_COLOR } from "../../types";
 
 type Props = {
 
@@ -58,6 +59,11 @@ export default function SettingsToggleRow({
             <Switch
                 value={value}
                 onValueChange={onValueChange}
+                thumbColor={ACCENT_COLOR}
+                trackColor={{
+                    false: "#D1D5DB",
+                    true: "#93C5FD",
+                }}
             />
 
         </View>

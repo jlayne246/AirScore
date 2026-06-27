@@ -19,13 +19,13 @@ export interface ReaderSettings {
 
     gestureControls: boolean;
 
-    restoreLastPage: boolean;
+    // restoreLastPage: boolean;
 
     swipeNavigation: boolean;
 
     facialGestures: boolean;
 
     resumeLastPage: boolean;
-    
+
     coverOffset: boolean;
 }

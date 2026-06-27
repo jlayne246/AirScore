@@ -28,6 +28,10 @@ import {
   Gesture,
   GestureDetector,
 } from 'react-native-gesture-handler';
+import {
+  activateKeepAwakeAsync,
+  deactivateKeepAwake,
+} from "expo-keep-awake";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
 import {
@@ -44,7 +48,6 @@ import {
   RootStackParamList,
   ScoreMetadata,
 } from '../types';
-import { activateKeepAwakeAsync } from 'expo-keep-awake';
 import ManageSetlistsModal from './ManageSetlistsModal';
 import MetadataForm from './MetadataForm';
 import { saveSetlistProgress } from "../utils/database";
@@ -82,10 +85,10 @@ const TOP_CHROME_HEIGHT = 112;
 
 type DisplayMode =
   | "single"
-  | "twoPage";
+  | "double";
 
 const getBuffer = (mode: DisplayMode) => {
-  if (mode === "twoPage") {
+  if (mode === "double") {
     return {
       behind: 4,
       ahead: 6,
@@ -238,7 +241,11 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
     useRef<Record<number, string>>({});
   const [jumpOverlayVisible, setJumpOverlayVisible] = useState(false);
   const [jumpPage, setJumpPage] = useState('');
-  const [displayMode, setDisplayMode] = useState<DisplayMode>("single");
+  const [displayMode, setDisplayMode] =
+    useState<DisplayMode>(settings.viewMode as DisplayMode);
+
+  const [coverOffset, setCoverOffset] =
+    useState(settings.coverOffset);
   const [chromeVisible, setChromeVisible] = useState(false);
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
   const chromeHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -262,17 +269,17 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   const effectiveDisplayMode: DisplayMode =
     isLandscape ? displayMode : 'single';
 
-  const [coverOffset, setCoverOffset] = useState(false);
+  // const [coverOffset, setCoverOffset] = useState(false);
 
   const pageStep =
-    effectiveDisplayMode === 'twoPage' ? 2 : 1;
+    effectiveDisplayMode === 'double' ? 2 : 1;
 
   type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
   const navigation = useNavigation<NavigationProp>();
 
   const pagerPageCount =
-  effectiveDisplayMode === 'twoPage'
+  effectiveDisplayMode === 'double'
     ? coverOffset
       ? 1 + Math.ceil((totalPages - 1) / 2)
       : Math.ceil(totalPages / 2)
@@ -482,6 +489,16 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   }, [saveCurrentSetlistProgress]);
 
   useEffect(() => {
+    if (!settings.keepScreenAwake) return;
+
+    activateKeepAwakeAsync();
+
+    return () => {
+      deactivateKeepAwake();
+    };
+  }, [settings.keepScreenAwake]);
+
+  useEffect(() => {
     const checkBookmark = async () => {
       if (!musicId) return;
 
@@ -505,32 +522,44 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
     loadBookmarks();
   }, [loadBookmarks]);
 
+  // useEffect(() => {
+  //   const loadDisplayMode = async () => {
+  //     const saved = await AsyncStorage.getItem(
+  //       "reader:displayMode"
+  //     );
+
+  //     if (
+  //       saved === "single" ||
+  //       saved === "double"
+  //     ) {
+  //       setDisplayMode(saved);
+  //     }
+  //   };
+
+  //   loadDisplayMode();
+  // }, []);
+
   useEffect(() => {
-    const loadDisplayMode = async () => {
-      const saved = await AsyncStorage.getItem(
-        "reader:displayMode"
-      );
-
-      if (
-        saved === "single" ||
-        saved === "twoPage"
-      ) {
-        setDisplayMode(saved);
-      }
-    };
-
-    loadDisplayMode();
-  }, []);
+    setDisplayMode(settings.viewMode);
+  }, [settings.viewMode]);
 
   useEffect(() => {
-    AsyncStorage.setItem(
-      "reader:displayMode",
-      displayMode
-    );
-  }, [displayMode]);
+    setCoverOffset(settings.coverOffset);
+  }, [settings.coverOffset]);
+
+  // useEffect(() => {
+  //   AsyncStorage.setItem(
+  //     "reader:displayMode",
+  //     displayMode
+  //   );
+  // }, [displayMode]);
 
   const showChromeTemporarily = useCallback(() => {
     setChromeVisible(true);
+
+    if (!settings.autoHideControls) {
+      return;
+    }
 
     if (chromeHideTimer.current) {
       clearTimeout(chromeHideTimer.current);
@@ -543,7 +572,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
       chromeHideTimer.current = null;
     }, 5000);
-  }, [overflowMenuOpen]);
+  }, [overflowMenuOpen, settings.autoHideControls]);
 
   useEffect(() => {
     let cancelled = false;
@@ -566,7 +595,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
       if (initialPage) {
         safePage = Math.min(initialPage, detectedTotal);
-      } else {
+      } else if (settings.resumeLastPage) {
         const saved = await AsyncStorage.getItem(`pdf:lastPage:${uri}`);
         const savedPage = saved ? Number(saved) : 1;
 
@@ -574,6 +603,8 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
           Number.isFinite(savedPage) && savedPage > 0
             ? Math.min(savedPage, detectedTotal)
             : 1;
+      } else {
+        safePage = 1;
       }
 
       setCurrentPage(safePage);
@@ -592,11 +623,17 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
     return () => {
       cancelled = true;
     };
-  }, [uri]);
+  }, [
+    uri,
+    initialPage,
+    settings.resumeLastPage,
+    getPagerIndexForPage,
+    showChromeTemporarily,
+  ]);
 
   useEffect(() => {
     renderBufferAround(currentPage);
-  }, [currentPage, renderBufferAround]);
+  }, [currentPage, renderBufferAround, settings.resumeLastPage]);
 
   
 
@@ -608,7 +645,9 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
       pagerRef.current?.setPage(getPagerIndexForPage(nextPage));
 
-      AsyncStorage.setItem(`pdf:lastPage:${uri}`, nextPage.toString());
+      if (settings.resumeLastPage) {
+        AsyncStorage.setItem(`pdf:lastPage:${uri}`, nextPage.toString());
+      }
 
       if (options?.showChrome !== false) {
         showChromeTemporarily();
@@ -666,14 +705,16 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
         return false;
       }
 
-      chromeHideTimer.current = setTimeout(() => {
-        setChromeVisible(false);
-        chromeHideTimer.current = null;
-      }, 3500);
+      if (settings.autoHideControls) {
+        chromeHideTimer.current = setTimeout(() => {
+          setChromeVisible(false);
+          chromeHideTimer.current = null;
+        }, 3500);
+      }
 
       return true;
     });
-  }, []);
+  }, [settings.autoHideControls]);
 
   useEffect(() => {
     return () => {
@@ -842,8 +883,8 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
               </MenuTrigger> 
               
               <MenuOptions customStyles={{ optionsContainer: { paddingVertical: 6, width: 220, }, }} > 
-                <MenuOption onSelect={() => { setDisplayMode((mode) => mode === 'single' ? 'twoPage' : 'single' ); }} > 
-                  <Text style={{ padding: 10, fontSize: 16, color: ACCENT_COLOR }}> View: {displayMode === 'twoPage' ? 'Two Page' : 'Single Page'} </Text> 
+                <MenuOption onSelect={() => { setDisplayMode((mode) => mode === 'single' ? 'double' : 'single' ); }} > 
+                  <Text style={{ padding: 10, fontSize: 16, color: ACCENT_COLOR }}> View: {displayMode === 'double' ? 'Two Page' : 'Single Page'} </Text> 
                 </MenuOption> 
                 <MenuOption onSelect={() => { setCoverOffset((v) => !v); }} > 
                   <Text style={{ padding: 10, fontSize: 16, color: ACCENT_COLOR }}> Cover Offset: {coverOffset ? 'On' : 'Off'} </Text> 
@@ -865,7 +906,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
               const position = event.nativeEvent.position;
 
               const selectedPage =
-                effectiveDisplayMode === 'twoPage'
+                effectiveDisplayMode === 'double'
                   ? coverOffset
                     ? position === 0
                       ? 1
@@ -874,7 +915,9 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
                   : position + 1;
 
               setCurrentPage(selectedPage);
-              AsyncStorage.setItem(`pdf:lastPage:${uri}`, selectedPage.toString());
+              if (settings.resumeLastPage) {
+                AsyncStorage.setItem(`pdf:lastPage:${uri}`, selectedPage.toString());
+              }
 
               renderBufferAround(selectedPage);
             }}
@@ -1780,7 +1823,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
               width: '7%',
               zIndex: 999,
               elevation: 999,
-              backgroundColor: 'rgba(255, 0, 0, 0.12)',
+              // backgroundColor: 'rgba(255, 0, 0, 0.12)',
             }}
             onPress={() => {
               const previousPage = currentPage - pageStep;
@@ -1805,7 +1848,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
               width: '7%',
               zIndex: 999,
               elevation: 999,
-              backgroundColor: 'rgba(255, 0, 0, 0.12)',
+              // backgroundColor: 'rgba(255, 0, 0, 0.12)',
             }}
             onPress={() => {
               console.log("Right tap zone pressed", {
