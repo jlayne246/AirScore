@@ -189,4 +189,8 @@ export interface SetlistSummary {
   updated_at?: string;
 }
 
-
+export const qualityScaleMap = {
+    standard: 2.0,
+    high: 2.5,
+    ultra: 3.0,
+};

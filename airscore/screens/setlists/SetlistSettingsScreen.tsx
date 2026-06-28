@@ -259,6 +259,21 @@ const SetlistSettingsScreen = ({ route }: Props) => {
           }
           icon="book-outline"
         />
+        
+        <SettingsSegmentedRow
+            title="Page Render Quality"
+            subtitle="Sharper pages use more memory and may take longer to render."
+            value={settings.pageRenderQuality}
+            options={[
+                { label: "Standard", value: "standard" },
+                { label: "High", value: "high" },
+                { label: "Ultra", value: "ultra" },
+            ]}
+            onValueChange={value =>
+                updateSetlistSetting("pageRenderQuality", value)
+            }
+            icon="scan-outline"
+        />
       </SettingsSection>
 
       <SettingsSection title="Performance">

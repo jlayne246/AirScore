@@ -44,6 +44,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   Bookmark,
   MetadataFormData,
+  qualityScaleMap,
   ReaderContext,
   RootStackParamList,
   ScoreMetadata,
@@ -346,6 +347,10 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
       tapZones: true,
       keepScreenAwake: true,
       resumeLastPage: settings.resumeLastPage,
+      pageRenderQuality:
+        effectivePerformanceMode
+            ? "high"
+            : settings.pageRenderQuality,
 
       // Leave these alone
       facialGestures: settings.facialGestures,
@@ -364,6 +369,8 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
     [width, height]
   );
 
+  const qualityScale =
+    qualityScaleMap[effectiveSettings.pageRenderQuality];
 
   const effectiveDisplayMode: DisplayMode =
     isLandscape ? displayMode : 'single';

@@ -28,4 +28,9 @@ export interface ReaderSettings {
     resumeLastPage: boolean;
 
     coverOffset: boolean;
+
+    pageRenderQuality:
+    | "standard"
+    | "high"
+    | "ultra";
 }

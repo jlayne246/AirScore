@@ -25,4 +25,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     resumeLastPage: true,
 
     coverOffset: false,
+
+    pageRenderQuality: "high"
 };
