@@ -1381,6 +1381,8 @@ export const addMusicToSetlistById = async (
 ) => {
   const db = await openDatabase();
 
+  const position = await getNextSetlistPosition(db, setlistId);
+
   await db.runAsync(
     `
     INSERT OR IGNORE INTO music_setlists (
@@ -1388,20 +1390,9 @@ export const addMusicToSetlistById = async (
       setlist_id,
       position
     )
-    VALUES (
-      ?,
-      ?,
-      COALESCE(
-        (
-          SELECT MAX(position) + 1
-          FROM music_setlists
-          WHERE setlist_id = ?
-        ),
-        1
-      )
-    )
+    VALUES (?, ?, ?)
     `,
-    [musicId, setlistId, setlistId]
+    [musicId, setlistId, position]
   );
 };
 
