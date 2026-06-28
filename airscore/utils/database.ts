@@ -696,21 +696,23 @@ export const setMusicSetlists = async (musicId: number, setlistNames: string[]) 
 
         // Re-add current selections (excluding "Unsetlisted")
         for (const setlistName of setlistNames.filter((g) => g !== "")) {
-        await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
-            setlistName,
-        ]);
+          await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
+              setlistName,
+          ]);
 
-        const setlist = await db.getFirstAsync<{ id: number }>(
-            "SELECT id FROM setlists WHERE name = ?",
-            [setlistName]
-        );
+          const setlist = await db.getFirstAsync<{ id: number }>(
+              "SELECT id FROM setlists WHERE name = ?",
+              [setlistName]
+          );
 
-        if (setlist?.id !== undefined) {
-            await db.runAsync(
-            "INSERT INTO music_setlists (music_id, setlist_id) VALUES (?, ?)",
-            [musicId, setlist.id]
-            );
-        }
+          if (setlist?.id !== undefined) {
+              const position = await getNextSetlistPosition(db, setlist.id);
+
+              // Create the relationship between the music item and the setlist(s)
+              await db.runAsync(
+                  'INSERT INTO music_setlists (music_id, setlist_id, position) VALUES (?, ?, ?)', [musicId, setlist.id, position]
+              );
+          }
         }
 
         await db.execAsync("COMMIT");
