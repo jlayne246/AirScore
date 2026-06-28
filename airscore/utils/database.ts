@@ -477,51 +477,95 @@ export const updateMusic = async (
   try {
     await db.execAsync("BEGIN TRANSACTION");
 
-    // Ensure music entry exists
     const existing = await db.getFirstAsync<{ id: number }>(
       "SELECT id FROM music WHERE id = ?",
       [id]
     );
+
     if (!existing) {
       throw new Error(`Music item with id ${id} does not exist`);
     }
 
-    // Update the music item
     await db.runAsync(
       "UPDATE music SET title = ?, uri = ?, updated_at = ? WHERE id = ?",
       [title, uri, updated, id]
     );
 
-    // Insert any new setlists (ignore existing)
     for (const setlistName of setlistNames) {
-      await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
-        setlistName,
-      ]);
+      await db.runAsync(
+        "INSERT OR IGNORE INTO setlists (name) VALUES (?)",
+        [setlistName]
+      );
     }
 
-    // Get all current setlist IDs
-    const setlistIds = [];
+    const setlistIds: number[] = [];
+
     for (const name of setlistNames) {
       const setlist = await db.getFirstAsync<Setlist>(
         "SELECT id FROM setlists WHERE name = ?",
         [name]
       );
+
       if (!setlist || setlist.id === undefined) {
         throw new Error(`Setlist "${name}" not found after insertion`);
       }
+
       setlistIds.push(setlist.id);
     }
 
-    // Remove all existing associations
-    await db.runAsync("DELETE FROM music_setlists WHERE music_id = ?", [id]);
+    const uniqueSetlistIds = [...new Set(setlistIds)];
 
-    // Re-insert updated associations
-    for (const setlistId of setlistIds) {
+    const existingRows = await db.getAllAsync<{ setlist_id: number }>(
+      `
+      SELECT setlist_id
+      FROM music_setlists
+      WHERE music_id = ?
+      `,
+      [id]
+    );
+
+    const existingSetlistIds = new Set(
+      existingRows.map((row) => row.setlist_id)
+    );
+
+    if (uniqueSetlistIds.length === 0) {
+      await db.runAsync(
+        `
+        DELETE FROM music_setlists
+        WHERE music_id = ?
+        `,
+        [id]
+      );
+    } else {
+      const placeholders = uniqueSetlistIds.map(() => "?").join(",");
+
+      await db.runAsync(
+        `
+        DELETE FROM music_setlists
+        WHERE music_id = ?
+          AND setlist_id NOT IN (${placeholders})
+        `,
+        [id, ...uniqueSetlistIds]
+      );
+    }
+
+    for (const setlistId of uniqueSetlistIds) {
+      if (existingSetlistIds.has(setlistId)) {
+        continue;
+      }
+
       const position = await getNextSetlistPosition(db, setlistId);
 
-      // Create the relationship between the music item and the setlist(s)
       await db.runAsync(
-          'INSERT INTO music_setlists (music_id, setlist_id, position) VALUES (?, ?, ?)', [id, setlistId, position]
+        `
+        INSERT INTO music_setlists (
+          music_id,
+          setlist_id,
+          position
+        )
+        VALUES (?, ?, ?)
+        `,
+        [id, setlistId, position]
       );
     }
 
