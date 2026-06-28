@@ -364,11 +364,6 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
 
-  const renderSize = useMemo(
-    () => getRenderSize(width, height, 2.5),
-    [width, height]
-  );
-
   const qualityScale =
     qualityScaleMap[effectiveSettings.pageRenderQuality];
 
@@ -411,6 +406,11 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
       height: Math.round(longSide * qualityScale),
     };
   };
+
+  const renderSize = useMemo(
+    () => getRenderSize(width, height, qualityScale),
+    [width, height, qualityScale]
+  );
 
   const initialThumbnailIndex =
   Math.floor((currentPage - 1) / THUMB_COLUMNS) * THUMB_COLUMNS;
