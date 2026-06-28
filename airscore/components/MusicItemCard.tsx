@@ -1,88 +1,200 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { Entypo } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { Entypo, Ionicons } from '@expo/vector-icons';
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
 
 import { MusicItemWithAllData } from '../types'; // Adjust the import path as necessary
+import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
 
 type Props = {
-    item: MusicItemWithAllData;
-    onEditMetadata: (id: number, title: string) => void;
-    onDelete: (id: number | undefined) => void;
-    onShare?: (id: number | undefined) => void;
+  item: MusicItemWithAllData;
+  onEditMetadata: (id: number, title: string, uri: string) => void;
+  onDelete: (id: number | undefined) => void;
+  onShare?: (id: number | undefined) => void;
+  onOpen?: () => void;
 };
 
-const MusicItemCard: React.FC<Props> = ({ item, onEditMetadata, onDelete, onShare }) => {
-    return (
-        <View className="bg-white rounded-lg p-4 mb-3 flex-row justify-between items-center shadow-sm shadow-black/10 elevation-3">
-        <View className="flex-1">
-            <Text className="text-base font-semibold text-gray-800 mb-1">
-            {item.metadata?.title ?? '[No title]'}
-            </Text>
-            <Text className="text-sm text-gray-600">
-            Groups: {item.groups.length > 0 ? item.groups.join(', ') : 'None'}
-            </Text>
-            {item.metadata?.labels && item.metadata.labels.length > 0 && (
-            <Text className="text-sm text-gray-500 mt-1">
-                Labels: {item.metadata.labels.join(', ')}
-            </Text>
-            )}
-        </View>
+const MusicItemCard: React.FC<Props> = ({
+  item,
+  onEditMetadata,
+  onDelete,
+  onShare,
+  onOpen,
+}) => {
+  const [thumbnailUri, setThumbnailUri] = useState("");
 
-        <View className="flex-row gap-2">
-            <Menu>
-            <MenuTrigger>
-                <Entypo name="dots-three-vertical" size={20} color="gray" />
-            </MenuTrigger>
-            <MenuOptions
-                customStyles={{
-                optionsContainer: {
-                    backgroundColor: 'white',
-                    borderRadius: 8,
-                    paddingVertical: 4,
-                    elevation: 5,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 4,
-                    marginTop: 20,
-                    width: 150,
-                },
-                }}
-            >
-                <MenuOption
-                onSelect={() =>
-                    item.id && onEditMetadata(item.id, item.metadata?.title ?? item.title)
-                }
-                customStyles={{
-                    optionWrapper: { padding: 10 },
-                    optionText: { fontSize: 14, color: '#333' },
-                }}
-                text="Edit Details"
-                />
-                <MenuOption
-                onSelect={() =>
-                    onShare?.(item.id)
-                }
-                customStyles={{
-                    optionWrapper: { padding: 10 },
-                    optionText: { fontSize: 14, color: '#333' },
-                }}
-                text="Share"
-                />
-                <MenuOption
-                onSelect={() => onDelete(item.id)}
-                customStyles={{
-                    optionWrapper: { padding: 10 },
-                    optionText: { fontSize: 14, color: '#333' },
-                }}
-                text="Delete"
-                />
-            </MenuOptions>
-            </Menu>
+  useEffect(() => {
+    const loadDocumentData = async () => {
+      if (!item.uri) return;
+
+      try {
+        const result = await AirScorePdfRenderer.renderPage({
+          pdfPath: item.uri,
+          page: 1,
+          width: 220,
+          height: 300,
+        });
+
+        setThumbnailUri(result.uri);
+      } catch (error) {
+        console.error("Failed to load PDF thumbnail:", error);
+      }
+    };
+
+    loadDocumentData();
+  }, [item.uri]);
+
+  const title = item.metadata?.title ?? item.title ?? "Untitled";
+  const documentType = item.metadata?.document_type ?? "Score";
+
+  const creator =
+    documentType === "Single Work"
+        ? item.metadata?.composer
+        ? item.metadata?.arranger
+            ? `${item.metadata.composer} (Arr. ${item.metadata.arranger})`
+            : item.metadata.composer
+        : item.metadata?.arranger
+            ? `Arr. ${item.metadata.arranger}`
+            : "Unknown composer"
+        : item.metadata?.editor ||
+        item.metadata?.publisher ||
+        documentType;
+
+  return (
+    <TouchableOpacity
+      style={{
+        flexDirection: "row",
+        backgroundColor: "white",
+        borderRadius: 14,
+        // padding: 12,
+        marginBottom: 12,
+        alignItems: "center",
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+        paddingVertical: 12,
+      }}
+      onPress={onOpen}
+      activeOpacity={0.75}
+    >
+      {thumbnailUri ? (
+        <Image
+          source={{ uri: thumbnailUri }}
+          style={{
+            width: 82,
+            height: 108,
+            resizeMode: "contain",
+            backgroundColor: "#f3f4f6",
+            marginRight: 14,
+          }}
+        />
+      ) : (
+        <View
+          style={{
+            width: 70,
+            height: 92,
+            backgroundColor: "#f3f4f6",
+            marginRight: 14,
+            borderWidth: 1,
+            borderColor: "#e5e7eb",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name="document-outline" size={26} color="#9ca3af" />
         </View>
+      )}
+
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 17, fontWeight: "700", color: "#1f2937" }}>
+          {title}
+        </Text>
+
+        <Text style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
+          {creator}
+        </Text>
+
+        <Text style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
+          {documentType} · {item.metadata?.genre || "Uncategorised"} ·{" "}
+          {item.metadata?.page_count || 0} pages
+        </Text>
+
+        <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+        }}>
+            {item.metadata?.genre ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8 }}>
+                    <View
+                        key={item.metadata?.genre}
+                        style={{
+                        backgroundColor: "#eaffe8",
+                        borderRadius: 999,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        marginRight: 6,
+                        marginBottom: 4,
+                        }}
+                    >
+                        <Text style={{ color: "#0b590e", fontSize: 12 }}>{item.metadata?.genre}</Text>
+                    </View>
+                </View>
+                ) : null}
+
+                {item.metadata?.labels?.length ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8 }}>
+                    {item.metadata.labels.slice(0, 3).map((label) => (
+                    <View
+                        key={label}
+                        style={{
+                        backgroundColor: "#F3E8FF",
+                        borderRadius: 999,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        marginRight: 6,
+                        marginBottom: 4,
+                        }}
+                    >
+                        <Text style={{ color: "#7E22CE", fontSize: 12 }}>{label}</Text>
+                    </View>
+                    ))}
+                </View>
+                ) : null}
         </View>
-    );
+        
+      </View>
+
+      <Menu>
+        <MenuTrigger>
+          <Ionicons name="ellipsis-vertical" size={22} color="#777" />
+        </MenuTrigger>
+
+        <MenuOptions>
+          <MenuOption
+            text="Edit Details"
+            onSelect={() =>
+              item.id &&
+              onEditMetadata(
+                item.id,
+                title,
+                item.uri
+              )
+            }
+          />
+
+          <MenuOption
+            text="Share"
+            onSelect={() => onShare?.(item.id)}
+          />
+
+          <MenuOption
+            text="Delete"
+            onSelect={() => onDelete(item.id)}
+          />
+        </MenuOptions>
+      </Menu>
+    </TouchableOpacity>
+  );
 };
 
 export default MusicItemCard;

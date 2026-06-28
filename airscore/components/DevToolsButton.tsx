@@ -17,7 +17,7 @@ const DevToolsButton = () => {
     try {
       await resetDatabase();
       setLastAction('Database reset successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error resetting database:', error);
       setLastAction(`Error: ${error.message}`);
       Alert.alert('Error', 'Failed to reset database');
@@ -27,12 +27,12 @@ const DevToolsButton = () => {
   };
 
   // Handle dropping specific tables
-  const handleDropTable = async (tableName) => {
+  const handleDropTable = async (tableName: string) => {
     setIsLoading(true);
     try {
       await dropTables([tableName]);
       setLastAction(`Dropped table: ${tableName}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error dropping table ${tableName}:`, error);
       setLastAction(`Error: ${error.message}`);
       Alert.alert('Error', `Failed to drop table ${tableName}`);
@@ -47,7 +47,7 @@ const DevToolsButton = () => {
     try {
       await initDB();
       setLastAction('Database initialized');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error initializing database:', error);
       setLastAction(`Error: ${error.message}`);
       Alert.alert('Error', 'Failed to initialize database');
@@ -101,10 +101,10 @@ const DevToolsButton = () => {
             <View style={styles.buttonRow}>
               <TouchableOpacity
                 style={[styles.tableButton, { backgroundColor: '#007bff' }]}
-                onPress={() => handleDropTable('music_groups')}
+                onPress={() => handleDropTable('music_setlists')}
                 disabled={isLoading}
               >
-                <Text style={styles.tableButtonText}>music_groups</Text>
+                <Text style={styles.tableButtonText}>music_setlists</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -117,10 +117,10 @@ const DevToolsButton = () => {
               
               <TouchableOpacity
                 style={[styles.tableButton, { backgroundColor: '#6f42c1' }]}
-                onPress={() => handleDropTable('groups')}
+                onPress={() => handleDropTable('setlists')}
                 disabled={isLoading}
               >
-                <Text style={styles.tableButtonText}>groups</Text>
+                <Text style={styles.tableButtonText}>setlists</Text>
               </TouchableOpacity>
             </View>
             

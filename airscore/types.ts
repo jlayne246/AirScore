@@ -1,7 +1,35 @@
 export type RootStackParamList = {
-  Library: undefined;
-  Reader: { uri: string };
+  Library: {
+    pendingImport?: {
+      uri: string;
+      originalFilename: string;
+    };
+  };
+  Reader: {
+    uri: string;
+    musicId: number;
+    context?: {
+      setlistId: number;
+      setlistName: string;
+      currentIndex: number;
+      totalItems: number;
+      musicIds: number[];
+    };
+    startPage?: number;
+  };
   Dashboard: undefined;
+  Setlists: undefined;
+  SetlistDetail: {
+    setlistId: number;
+  };
+  Settings: undefined;
+  SetlistSettings: {
+    setlistId: number;
+  }
+  MusicSettings: {
+    musicId: number;
+    setlistId?: number;
+  };
 };
 
 // Define types for music items
@@ -9,18 +37,22 @@ export interface MusicItem {
   id?: number;
   title: string;
   uri: string;
+  original_filename: string;
   created_at: string;
+  last_opened_at?: string;
 }
 
 // Define types for music item metadata
 export interface MusicMetadata {
   id?: number;
   title: string;
+  document_type: string;
   composer: string;
+  arranger: string;
+  editor: string;
+  publisher: string;
   genre: string;
   key_signature: string;
-  rating: number; // 1-5
-  difficulty: number; // 1-10
   time_signature: string;
   page_count: number;
   created_at: string;
@@ -36,31 +68,125 @@ export interface Label {
 
 export interface MusicMetadataWithLabels extends MusicMetadata {
   labels: string[];
-  // groups: string[];
+  // setlists: string[];
 }
 
 export type MusicItemWithAllData = MusicItem & {
-  groups: string[];
+  setlists: string[];
   metadata?: MusicMetadataWithLabels | null;
 };
 
-// Define types for the groups
-export interface Group {
-    id?: number;
+// Define types for the setlists
+export interface Setlist {
+    id: number;
     name: string;
+    description?: string;
+    created_at: string;
+    updated_at: string;
 }
 
 // Updated interface to include all metadata
 export interface MetadataFormData {
   title: string;
-  groups: string[];
+  setlists: string[];
   // Add all the metadata fields
   composer?: string;
+  arranger?: string;
+  editor?: string;
+  publisher?: string;
+  document_type: string;
   genre?: string;
   key_signature?: string;
-  rating?: number;
-  difficulty?: number;
   time_signature?: string;
   page_count?: number;
   labels?: string[];
 }
+
+export type Bookmark = {
+  id: number;
+  page_number: number;
+  label?: string;
+};
+
+export type ScoreInfo = {
+  id?: number;
+  title?: string;
+  composer?: string;
+  arranger?: string;
+  publisher?: string;
+  category?: string;
+  notes?: string;
+  labels?: string[];
+  setlists?: string[];
+};
+
+export const DOCUMENT_TYPES = [
+  "Single Work",
+  "Collection",
+  "Service Book",
+  "Hymnal",
+  "Method Book",
+];
+
+export type ScoreMetadata = {
+  title: string;
+  document_type: string;
+  composer?: string;
+  editor?: string;
+  arranger?: string;
+  publisher?: string;
+  notes?: string;
+  labels?: string[];
+};
+
+export type ReaderContext = {
+  setlistId: number;
+  setlistName: string;
+  setlistDescription?: string;
+  currentIndex: number;
+  totalItems: number;
+  musicIds: number[];
+};
+
+export const ACCENT_COLOR = '#2563EB';
+
+export const COLORS = {
+  accent: ACCENT_COLOR,
+  accentLight: "#93C5FD",
+  accentVeryLight: "#DBEAFE",
+
+  text: "#111827",
+  secondaryText: "#6B7280",
+
+  border: "#E5E7EB",
+  background: "#FFFFFF",
+  pageBackground: "#F9FAFB",
+};
+
+export const GENRE_OPTIONS = [
+  "Organ",
+  "Hymn",
+  "Psalm",
+  "Choral Anthem",
+  "Carol",
+  "Canticle",
+  "Service Music",
+  "Mass Setting",
+  "Motet",
+  "Oratorio",
+  "Sacred Solo",
+  "Instrumental",
+  "Contemporary Worship",
+  "General Sacred",
+];
+
+export interface SetlistSummary {
+  id: number;
+  name: string;
+  description?: string | null;
+  item_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+

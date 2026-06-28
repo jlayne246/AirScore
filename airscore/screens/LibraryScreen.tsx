@@ -1,448 +1,705 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { RefreshControl, View, ScrollView, Text, FlatList, SectionList, Animated, Button, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  Animated,
+  RefreshControl,
+  SectionList,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
-import { Entypo } from '@expo/vector-icons';
-
-import { useNavigation } from "@react-navigation/native";
+import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
+import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, MusicItem, MusicItemWithAllData, MetadataFormData, MusicMetadata } from '../types';
+
+import {
+  RootStackParamList,
+  MusicItemWithAllData,
+  MetadataFormData,
+  ACCENT_COLOR,
+} from '../types';
 
 import { UploadLocalPDF } from '../utils/fileUtils';
-import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleGroups, deleteMusic, saveCompleteMetadata } from "../utils/database";
+import {
+  initDB,
+  insertMusic,
+  getMusicWithAllData,
+  deleteMusic,
+  saveCompleteMetadata,
+  metadataExists,
+  musicExistsByUri,
+} from '../utils/database';
 
-import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
+import MusicItemCard from '../components/MusicItemCard';
+import MetadataForm from '../components/MetadataForm';
+import DeleteModal from '../components/DeleteModal';
 
-import MetadataForm from '../components/MetadataForm'; // Adjust path as needed
-import DeleteModal from '../components/DeleteModal'; // Adjust path as needed
+type FilterOption = 'title' | 'composer' | 'setlist' | 'any';
 
-import * as troubleshooting from "../utils/troubleshooting";
+const filterButtons = ['Any', 'Title', 'Creator', 'Setlist'];
 
-const LibraryScreen = ({}) => {
-    const [musicList, setMusicList] = useState<Array<MusicItem & { groups: string[] }>>([]);
-    const [selectedMusicId, setSelectedMusicId] = useState<number | undefined>();
-    const [deletedMusicId, setDeletedMusicId] = useState<number>();
-    const [pendingPdfUri, setPendingPdfUri] = useState<string | null>(null);
-    const [prefilledTitle, setPrefilledTitle] = useState<string | undefined>();
-    const [infoboxMode, setInfoboxMode] = useState<string>("new");
-    const [showMetadataForm, setShowMetadataForm] = useState(false);
-    const [showDeleteForm, setShowDeleteForm] = useState(false);
-    const [loading, setLoading] = useState(false);
+const filterMap: Record<number, FilterOption> = {
+  0: 'any',
+  1: 'title',
+  2: 'composer',
+  3: 'setlist',
+};
 
-    const [showAZ, setShowAZ] = useState(false);
-    const [indicatorLetter, setIndicatorLetter] = useState('');
-    const fadeAnim = useRef(new Animated.Value(0)).current;
+// type LibraryScreenProps = {
+//     pendingImport?: {
+//         uri: string;
+//         originalFilename: string;
+//     }
+// };
 
-    type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Library'>;
 
-    const navigation = useNavigation<NavigationProp>();
+const LibraryScreen = () => {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList, 'Library'>>();
 
-    const [refreshing, setRefreshing] = React.useState(false);
+  const [musicList, setMusicList] = useState<MusicItemWithAllData[]>([]);
+  const [selectedMusicId, setSelectedMusicId] = useState<number | undefined>();
+  const [deletedMusicId, setDeletedMusicId] = useState<number | undefined>();
+
+  const [pendingPdfUri, setPendingPdfUri] = useState<string | null>(null);
+  const [originalFilename, setOriginalFilename] = useState<string>("Imported PDF.pdf");
+  const [prefilledTitle, setPrefilledTitle] = useState<string | undefined>();
+
+  const [infoboxMode, setInfoboxMode] = useState<'new' | 'edit'>('new');
+  const [showMetadataForm, setShowMetadataForm] = useState(false);
+  const [showDeleteForm, setShowDeleteForm] = useState(false);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterBy, setFilterBy] = useState<FilterOption>('any');
+
+  const [showAZ, setShowAZ] = useState(false);
+  const [indicatorLetter, setIndicatorLetter] = useState('');
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const sectionListRef = useRef<SectionList<MusicItemWithAllData>>(null);
+
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  const route = useRoute<RouteProp<RootStackParamList, "Library">>();
 
     useEffect(() => {
-        initDB();
-        loadMusic(); // Call on mount
-    }, []);
-    
+        const pendingImport = route.params?.pendingImport;
 
-    const loadMusic = async () => {
-        try {
-            const results = await getMusicWithAllData();
-            setMusicList(results); // Set the state here
-        } catch (error) {
-            console.error('Failed to load music:', error);
-        }
-    };
+        if (!pendingImport) return;
 
-    const refreshMusicList = async () => {
-        const results = await getMusicWithAllData();
-        setMusicList(results);
-    };
+        const filename =
+            pendingImport.originalFilename ?? "Imported PDF.pdf";
 
-    const onRefresh = React.useCallback(async () => {
-        setRefreshing(true);
-        await refreshMusicList();
-        setTimeout(() => {
-        setRefreshing(false);
-        }, 2000);
-    }, [refreshMusicList]);
+        const title = filename.replace(/\.pdf$/i, "");
 
-    // Handle opening metadata form
-    const handleEditMetadata = (musicId: number, musicTitle: string) => {
-        setSelectedMusicId(musicId);
-        setInfoboxMode("edit");
-        setPrefilledTitle(undefined); // Clear prefilled title for existing items
+        setPendingPdfUri(pendingImport.uri);
+        setOriginalFilename(filename);
+        setPrefilledTitle(title);
+        setSelectedMusicId(undefined);
+        setInfoboxMode("new");
         setShowMetadataForm(true);
-    };
 
-    // Handle metadata form save
-    const handleMetadataSave = async (formData?: MetadataFormData) => {
-        setShowMetadataForm(false);
-        setSelectedMusicId(undefined);
-        setPrefilledTitle(undefined);
-        
-      
-        if (formData && pendingPdfUri) {
-          try {
-            const now = new Date().toISOString();
+        navigation.setParams({ pendingImport: undefined });
+    }, [route.params?.pendingImport]);
 
-            const cleanGroups = (formData.groups ?? []).filter(g => g !== "Ungrouped");
-            const groupsToInsert = cleanGroups.length > 0 ? cleanGroups : []; // <- not ['Ungrouped']
-            
-            // Create the music record first
-            const insertedId = await insertMusic(
-              formData.title,
-              pendingPdfUri,
-              groupsToInsert,
-              now
-            );
+    useFocusEffect(
+        useCallback(() => {
+            loadMusic();
+        }, [])
+    );
 
-            console.log("Music Record Created")
-            
-            // Now save the metadata with the new musicId
-            if (insertedId) {
-              const metadataToSave = {
-                title: formData.title,
-                composer: formData.composer || '',
-                genre: formData.genre || '',
-                key_signature: formData.key_signature || '',
-                rating: formData.rating || 0,
-                difficulty: formData.difficulty || 0,
-                time_signature: formData.time_signature || '',
-                page_count: formData.page_count || 0,
-                created_at: now,
-                updated_at: now,
-              };
-              
-              await saveCompleteMetadata(insertedId, metadataToSave, formData.labels || []);
-            }
-            
-            setPendingPdfUri(null);
-            await loadMusic(); // Refresh the music list
-          } catch (err) {
-            console.error('Error saving music and metadata:', err);
-            
-            if (err instanceof Error) {
-                console.error("Line Info:", troubleshooting.getLineFromStack(err.stack));
-            }
-          }
-        } else if (formData && selectedMusicId) {
-          // This is for editing existing items - metadata form handles this
-          await loadMusic(); // Just refresh the list
-        } else {
-          setPendingPdfUri(null); // Clear if cancelled
-        }
-    };
-      
+    useEffect(() => {
+        // initDB();
+        loadMusic();
+    }, []);
 
-    // Handle metadata form cancel
-    const handleMetadataCancel = () => {
-        setShowMetadataForm(false);
-        setSelectedMusicId(undefined);
-        setPrefilledTitle(undefined); // Clear prefilled title
-    };
+  useLayoutEffect(() => {
+    navigation.setOptions({
+        header: () => (
+        <View
+            style={{
+            height: 92,
+            backgroundColor: 'white',
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
+            justifyContent: 'flex-end',
+            paddingHorizontal: 20,
+            paddingBottom: 12,
+            }}
+        >
+            <View
+            style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+            }}
+            >
+              <View
+                    style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    flex: 1,
+                    }}
+                >
+                  <TouchableOpacity
+                      onPress={() => navigation.goBack()}
+                      style={{ marginRight: 12 }}
+                      >
+                      <Ionicons
+                          name="chevron-back"
+                          size={28}
+                          color={ACCENT_COLOR}
+                      />
+                      </TouchableOpacity>
+                  <Text
+                      style={{
+                      fontSize: 24,
+                      // fontWeight: '700',
+                      fontWeight: '300',
+                      color: '#111827',
+                      }}
+                  >
+                      Library
+                  </Text>
+                </View>
 
-    const handleImport = async () => {
-        setLoading(true);
-        const uri = await UploadLocalPDF();
-      
-        if (uri) {
-          const raw_title = uri.split('/').pop() || 'Untitled';
-          const title = raw_title.replace('.pdf', '');
-      
-          setPendingPdfUri(uri);              // store the file path
-          setPrefilledTitle(title);          // prefill title for metadata form
-          setInfoboxMode("new"); 
-          setShowMetadataForm(true);         // show metadata form
-        }
-      
-        setLoading(false);
-      };
-      
-    
-    const handleDelete = async (id: number) => {
-        console.log("Handling Delete")
-        setShowDeleteForm(true);
-        setDeletedMusicId(id);
+            <TouchableOpacity
+                onPress={handleImport}
+                style={{
+                    // width: 42,
+                    // height: 42,
+                    // borderRadius: 7,
+                    // backgroundColor: '#2563EB',
+                    // alignItems: 'center',
+                    // justifyContent: 'center',
+                }}
+            >
+                <Ionicons name="add" size={28} color="#2563EB" />
+            </TouchableOpacity>
+            </View>
+        </View>
+        ),
+    });
+    }, [navigation]);
+
+
+  const loadMusic = async () => {
+    try {
+      const results = await getMusicWithAllData();
+      console.log(`Music loaded: ${results.length}`)
+      setMusicList(results);
+    } catch (error) {
+      console.error('Failed to load music:', error);
+    }
+  };
+
+  const refreshMusicList = async () => {
+    setRefreshing(true);
+    await loadMusic();
+    setRefreshing(false);
+  };
+
+  const handleImport = async () => {
+    const uri = await UploadLocalPDF();
+
+    if (!uri) return;
+
+    const rawTitle = uri.originalFilename.split('/').pop() || 'Untitled';
+    const title = rawTitle.replace('.pdf', '');
+
+    console.log("URI: ", uri);
+    console.log("title: ", title);
+
+    setPendingPdfUri(uri.uri);
+    setOriginalFilename(uri.originalFilename);
+    setPrefilledTitle(title);
+    setSelectedMusicId(undefined);
+    setInfoboxMode('new');
+    setShowMetadataForm(true);
+  };
+
+  const handleEditMetadata = (
+    musicId: number,
+    _musicTitle: string,
+    musicUri: string
+  ) => {
+    setSelectedMusicId(musicId);
+    setPendingPdfUri(musicUri);
+    setPrefilledTitle(undefined);
+    setInfoboxMode('edit');
+    setShowMetadataForm(true);
+  };
+
+  const handleMetadataSave = async (formData?: MetadataFormData) => {
+    setShowMetadataForm(false);
+
+    if (infoboxMode === 'edit' && selectedMusicId) {
+      setSelectedMusicId(undefined);
+      setPrefilledTitle(undefined);
+      setPendingPdfUri(null);
+      await loadMusic();
+      return;
     }
 
-    const openPDF = (uri: string) => {
-        navigation.navigate('Reader', { uri });
-    };
+    if (formData && pendingPdfUri) {
+      try {
+        const now = new Date().toISOString();
 
-    const groupMusicByLetter = (items: typeof musicList) => {
-        const groups: Record<string, typeof musicList> = {};
-      
-        items.forEach(item => {
-          const title = item?.title || item.title || '';
-          const letter = title[0]?.toUpperCase() || '#';
-          if (!groups[letter]) groups[letter] = [];
-          groups[letter].push(item);
-        });
-      
-        return Object.keys(groups)
-          .sort()
-          .map(letter => ({
-            title: letter,
-            data: groups[letter],
-          }));
-      };
-      
-      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-      const grouped = groupMusicByLetter(musicList);
+        const duplicate = await metadataExists(
+          formData.title,
+          formData.composer || ''
+        );
 
-      // Show letter briefly
-    const flashLetter = (letter: string) => {
-        setIndicatorLetter(letter);
-        Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-        }).start(() => {
-        setTimeout(() => {
-            Animated.timing(fadeAnim, {
-            toValue: 0,
-            duration: 250,
-            useNativeDriver: true,
-            }).start();
-        }, 700);
-        });
-    };
-
-    const scrollToLetter = (letter: string) => {
-        const index = grouped.findIndex(section => section.title === letter);
-        if (index !== -1 && sectionListRef.current) {
-        sectionListRef.current.scrollToLocation({
-            sectionIndex: index,
-            itemIndex: 0,
-            animated: true,
-        });
-        flashLetter(letter);
+        if (duplicate) {
+          Alert.alert(
+            'Duplicate music',
+            'A piece with this title and creator already exists.'
+          );
+          setPendingPdfUri(null);
+          return;
         }
-    };
 
-    // Render individual music item
-    const renderMusicItem = ({ item }: { item: MusicItemWithAllData }) => (
-        <View className="bg-white rounded-lg p-4 mb-3 flex-row justify-between items-center shadow-sm shadow-black/10 elevation-3">
-        <View className="flex-1">
-            <Text className="text-base font-semibold text-gray-800 mb-1">{item.metadata?.title ?? '[No title]'}</Text>
-            <Text className="text-sm text-gray-600">
-            Groups: {item.groups.length > 0 ? item.groups.join(', ') : 'None'}
-            </Text>
-            {item.metadata?.labels && item.metadata.labels.length > 0 && (
-                <Text className="text-sm text-gray-500 mt-1">
-                Labels: {item.metadata.labels.join(', ')}
-                </Text>
-            )}
-        </View>
-        
-        <View className="flex-row gap-2">
-            {/* Edit Metadata Button */}
-            {/* <TouchableOpacity
-            className="bg-blue-500 py-1.5 px-3 rounded"
-            onPress={() =>
-                item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)
-              }
-            >
-                <Text className="text-white text-xs font-semibold">Info</Text>
-            </TouchableOpacity> */}
-            
-            {/* Your existing buttons (play, edit, delete, etc.) */}
-            {/* <TouchableOpacity className="bg-red-500 py-1.5 px-3 rounded"
-            onPress={() => item.id && handleDelete(item.id)}>
-                <Text className="text-white text-xs font-semibold">Delete</Text>
-            </TouchableOpacity> */}
+        const duplicateUri = await musicExistsByUri(pendingPdfUri);
 
-            {/* <TouchableOpacity onPress={() => console.log("Menu")}>
-                <Entypo name='dots-three-vertical' size={20} color={"gray"} />
-            </TouchableOpacity> */}
+        if (duplicateUri) {
+          Alert.alert(
+            'Duplicate PDF',
+            'This PDF has already been imported into your library.'
+          );
+          setPendingPdfUri(null);
+          return;
+        }
 
-            <Menu>
-                <MenuTrigger>
-                    <Entypo name='dots-three-vertical' size={20} color={"gray"} />
-                </MenuTrigger>
-                <MenuOptions
-                    customStyles={{
-                        optionsContainer: {
-                            backgroundColor: 'white',
-                            borderRadius: 8,
-                            paddingVertical: 4,
-                            elevation: 5,
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.2,
-                            shadowRadius: 4,
-                            marginTop: 20,
-                            width: 150
-                        }
-                    }}
-                >
-                    <MenuOption
-                        onSelect={() => item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)}
-                        customStyles={{
-                            optionWrapper: {padding: 10},
-                            optionText: {fontSize: 14, color: '#333'}
-                        }}
-                        text='Edit Details'
-                    />
-                    <MenuOption
-                        onSelect={() => item.id && handleEditMetadata(item.id, item.metadata?.title ?? item.title)}
-                        customStyles={{
-                            optionWrapper: {padding: 10},
-                            optionText: {fontSize: 14, color: '#333'}
-                        }}
-                        text='Share'
-                    />
-                    <MenuOption
-                        onSelect={() => console.log("Delete")}
-                        customStyles={{
-                            optionWrapper: {padding: 10},
-                            optionText: {fontSize: 14, color: '#333'}
-                        }}
-                        text='Delete'
-                    />
-                </MenuOptions>
-            </Menu>
-        </View>
-        </View>
+        const cleanSetlists = (formData.setlists ?? []).filter(
+          (setlist) => setlist !== 'Ungrouped'
+        );
+
+        console.log("Saving original filename:", originalFilename);
+
+        const insertedId = await insertMusic(
+          formData.title,
+          pendingPdfUri,
+          originalFilename,
+          cleanSetlists,
+          now
+        );
+
+        await saveCompleteMetadata(
+          insertedId,
+          {
+            title: formData.title,
+            document_type: formData.document_type || 'Single Work',
+            composer: formData.composer || '',
+            arranger: formData.arranger || '',
+            editor: formData.editor || '',
+            publisher: formData.publisher || '',
+            genre: formData.genre || '',
+            key_signature: formData.key_signature || '',
+            time_signature: formData.time_signature || '',
+            page_count: formData.page_count || 0,
+            created_at: now,
+            updated_at: now,
+          },
+          formData.labels || []
+        );
+
+        await loadMusic();
+
+        navigation.navigate('Reader', {
+          uri: pendingPdfUri,
+          musicId: insertedId,
+        } as any);
+      } catch (error) {
+        console.error('Error saving music and metadata:', error);
+      }
+    }
+
+    setSelectedMusicId(undefined);
+    setPrefilledTitle(undefined);
+    setPendingPdfUri(null);
+  };
+
+  const handleMetadataCancel = () => {
+    setShowMetadataForm(false);
+    setSelectedMusicId(undefined);
+    setPrefilledTitle(undefined);
+    setPendingPdfUri(null);
+  };
+
+  const handleDelete = (id: number) => {
+    setDeletedMusicId(id);
+    setShowDeleteForm(true);
+  };
+
+  const openPDF = (item: MusicItemWithAllData) => {
+    if (!item.uri || !item.id) return;
+
+    navigation.navigate('Reader', {
+      uri: item.uri,
+      musicId: item.id,
+    });
+  };
+
+  const query = searchQuery.trim().toLowerCase();
+
+  const filteredMusic = musicList.filter((item) => {
+    if (!query) return true;
+
+    const metadata = item.metadata;
+
+    const title = (metadata?.title ?? item.title ?? '').toLowerCase();
+    const composer = (metadata?.composer ?? '').toLowerCase();
+    const editor = (metadata?.editor ?? '').toLowerCase();
+    const publisher = (metadata?.publisher ?? '').toLowerCase();
+    const genre = (metadata?.genre ?? '').toLowerCase();
+    const documentType = (metadata?.document_type ?? '').toLowerCase();
+
+    const setlists = item.setlists ?? [];
+    const labels = metadata?.labels ?? [];
+
+    const setlistMatch = setlists.some((setlist) =>
+      setlist.toLowerCase().includes(query)
     );
 
-    // const deleteModal = (item_id: number) => (
-    //     <View>
-    //         <Text>Are you sure you want to delete?</Text>
-    //         <TouchableOpacity
-    //         className="bg-blue-500 py-1.5 px-3 rounded"
-    //         >
-    //             <Text className="text-white text-xs font-semibold">Cancel</Text>
-    //         </TouchableOpacity>
-    //         <TouchableOpacity className="bg-red-500 py-1.5 px-3 rounded"
-    //         onPress={() => item_id && deleteMusic(item_id)}>
-    //             <Text className="text-white text-xs font-semibold">Delete</Text>
-    //         </TouchableOpacity>
-    //     </View>
-    // )
+    const labelMatch = labels.some((label) =>
+      label.toLowerCase().includes(query)
+    );
 
-    const sections = groupMusicByLetter(musicList);
-    const sectionListRef = useRef<SectionList>(null);
+    if (filterBy === 'title') return title.includes(query);
+
+    if (filterBy === 'composer') {
+      return (
+        composer.includes(query) ||
+        editor.includes(query) ||
+        publisher.includes(query)
+      );
+    }
+
+    if (filterBy === 'setlist') return setlistMatch;
 
     return (
-        <View className="flex-1 bg-white-100">
-            {musicList && musicList.length > 0 ? (
-                // <FlatList
-                //     data={musicList}
-                //     renderItem={renderMusicItem}
-                //     keyExtractor={(item, index) => item.id?.toString() || index.toString()}
-                //     className="p-4"
-                //     refreshControl={
-                //         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                //       }
-                // />
-                <SectionList
-                    ref={sectionListRef}
-                    sections={sections}
-                    keyExtractor={(item, index) => item.id?.toString() || index.toString()}
-                    renderItem={renderMusicItem}
-                    renderSectionHeader={({ section: { title } }) => (
-                        <View className="bg-gray-100 px-4 py-1">
-                          <Text className="text-base font-bold text-gray-700">{title}</Text>
-                        </View>
-                      )}
-                      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                      contentContainerStyle={{ paddingBottom: 100 }}
-                      className="px-4"
-                />
+      title.includes(query) ||
+      composer.includes(query) ||
+      editor.includes(query) ||
+      publisher.includes(query) ||
+      genre.includes(query) ||
+      documentType.includes(query) ||
+      setlistMatch ||
+      labelMatch
+    );
+  });
 
-            ) : (
-                <View className="flex-1 items-center justify-center px-4">
-                    <Text className="text-center text-sm text-gray-600">
-                        No music in library. Please press the (+) to add music.
-                    </Text>
-                </View>
-            )}
+  const groupMusicByLetter = (items: MusicItemWithAllData[]) => {
+    const grouped: Record<string, MusicItemWithAllData[]> = {};
 
-            {/* Show/Hide Sidebar */}
-            <TouchableOpacity
-                className="absolute right-4 bottom-6 bg-gray-800 px-3 py-2 rounded-full"
-                onPress={() => setShowAZ(true)}
-            >
-                <Text className="text-white text-sm font-medium">Scroll</Text>
-            </TouchableOpacity>
+    items.forEach((item) => {
+      const title = item.metadata?.title ?? item.title ?? '';
+      const letter = title[0]?.toUpperCase() || '#';
 
-            {/* A–Z Sidebar */}
-            {showAZ && (
-                <View className="absolute right-1 top-20 bottom-20 justify-center items-center bg-white/80 rounded-md px-1">
-                {alphabet.map(letter => (
-                    <TouchableOpacity key={letter} onPress={() => {
-                    scrollToLetter(letter);
-                    // auto-hide sidebar
-                    setTimeout(() => setShowAZ(false), 1000);
-                    }}>
-                    <Text className="text-xs text-gray-600 py-0.5 px-1">{letter}</Text>
-                    </TouchableOpacity>
-                ))}
-                </View>
-            )}
+      if (!grouped[letter]) grouped[letter] = [];
+      grouped[letter].push(item);
+    });
 
-            {/* Floating Indicator */}
-            {indicatorLetter !== '' && (
-                <Animated.View
-                style={{
-                    opacity: fadeAnim,
-                    position: 'absolute',
-                    alignSelf: 'center',
-                    top: '45%',
-                    backgroundColor: 'rgba(0,0,0,0.7)',
-                    padding: 20,
-                    borderRadius: 12,
-                }}
-                >
-                <Text className="text-white text-3xl font-bold">{indicatorLetter}</Text>
-                </Animated.View>
-            )}
+    return Object.keys(grouped)
+      .sort()
+      .map((letter) => ({
+        title: letter,
+        data: grouped[letter],
+      }));
+  };
 
+  const sections = groupMusicByLetter(filteredMusic);
 
-            {/* Metadata Form Modal */}
-            <MetadataForm
-                visible={showMetadataForm}
-                musicId={selectedMusicId}
-                initialTitle={prefilledTitle} // New prop
-                onSave={handleMetadataSave}
-                onCancel={handleMetadataCancel}
-                mode={infoboxMode}
+  const flashLetter = (letter: string) => {
+    setIndicatorLetter(letter);
+
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }).start();
+      }, 700);
+    });
+  };
+
+  const scrollToLetter = (letter: string) => {
+    const index = sections.findIndex((section) => section.title === letter);
+
+    if (index === -1) return;
+
+    sectionListRef.current?.scrollToLocation({
+      sectionIndex: index,
+      itemIndex: 0,
+      animated: true,
+    });
+
+    flashLetter(letter);
+    setTimeout(() => setShowAZ(false), 1000);
+  };
+
+  const renderMusicItem = ({ item }: { item: MusicItemWithAllData }) => (
+    <MusicItemCard
+      item={item}
+      onOpen={() => openPDF(item)}
+      onEditMetadata={() =>
+        item.id &&
+        handleEditMetadata(
+          item.id,
+          item.metadata?.title ?? item.title ?? 'Untitled',
+          item.uri
+        )
+      }
+      onDelete={() => item.id && handleDelete(item.id)}
+      onShare={() => console.log(`Share ${item.id}`)}
+    />
+  );
+
+  const filterLabel =
+    filterBy === 'any'
+      ? 'Any'
+      : filterBy === 'composer'
+      ? 'Creator'
+      : filterBy.charAt(0).toUpperCase() + filterBy.slice(1);
+
+  return (
+    <View className="flex-1 bg-white">
+      <View
+        style={{
+          backgroundColor: 'white',
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: 10,
+          borderBottomWidth: 1,
+          borderBottomColor: '#E5E7EB',
+        }}
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <View
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#F3F4F6',
+              borderRadius: 14,
+              paddingHorizontal: 12,
+              height: 46,
+            }}
+          >
+            <Ionicons name="search" size={20} color="#6B7280" />
+
+            <TextInput
+              placeholder="Search library..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#888"
+              style={{
+                flex: 1,
+                marginLeft: 8,
+                fontSize: 16,
+                color: '#111827',
+              }}
             />
 
-            {/* {loading && (
-                <View className="absolute inset-0 bg-black/60 flex justify-center items-center z-50">
-                    <View className="bg-gray-800 px-6 py-4 rounded-xl items-center w-64">
-                        <ActivityIndicator size="large" color="#ffffff" />
-                        <Text className="mt-3 text-white text-base text-center">Importing PDF...</Text>
-                    </View>
-                </View>
-            )} */}
-
-            {/* Delete Modal */}
-            {showDeleteForm && (
-                <DeleteModal
-                    itemId={deletedMusicId!}
-                    onCancel={() => setShowDeleteForm(false)}
-                    onDelete={() => {
-                    if (deletedMusicId) deleteMusic(deletedMusicId);
-                    setShowDeleteForm(false); refreshMusicList();
-                    }}
-                />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
             )}
+          </View>
 
+          <Menu>
+            <MenuTrigger>
+              <View
+                style={{
+                  height: 46,
+                  width: 118,
+                  borderRadius: 14,
+                  backgroundColor: '#EFF6FF',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 6,
+                }}
+              >
+                <Ionicons name="filter" size={18} color="#2563EB" />
 
-            {/* Floating Import (+) Button */}
-            <TouchableOpacity
-                className="absolute bottom-6 right-6 bg-blue-500 rounded-full w-14 h-14 justify-center items-center shadow-md shadow-black/20 elevation-5"
-                onPress={handleImport}
-            >
-                <Ionicons name="add" size={32} color="white" />
-            </TouchableOpacity>
+                <Text style={{ color: '#2563EB', fontWeight: '600' }}>
+                  {filterLabel}
+                </Text>
+              </View>
+            </MenuTrigger>
 
+            <MenuOptions>
+              {filterButtons.map((button, index) => {
+                const value = filterMap[index];
+                const selected = filterBy === value;
+
+                return (
+                  <MenuOption
+                    key={button}
+                    onSelect={() => setFilterBy(value)}
+                  >
+                    <Text
+                      style={{
+                        padding: 10,
+                        fontSize: 15,
+                        color: selected ? '#2563EB' : '#111827',
+                        fontWeight: selected ? '700' : '400',
+                      }}
+                    >
+                      {button}
+                    </Text>
+                  </MenuOption>
+                );
+              })}
+            </MenuOptions>
+          </Menu>
         </View>
-    );
+
+        {query.length > 0 && (
+          <Text
+            style={{
+              marginTop: 8,
+              fontSize: 14,
+              color: '#6B7280',
+            }}
+          >
+            {sections.length > 0
+              ? `Showing results for "${searchQuery}"`
+              : `No results found for "${searchQuery}"`}
+          </Text>
+        )}
+      </View>
+
+      {musicList.length > 0 ? (
+        <SectionList
+          ref={sectionListRef}
+          sections={sections}
+          keyExtractor={(item, index) =>
+            item.id?.toString() || index.toString()
+          }
+          renderItem={renderMusicItem}
+          renderSectionHeader={({ section: { title } }) => (
+            <View
+                style={{
+                paddingHorizontal: 16,
+                paddingTop: 12,
+                paddingBottom: 4,
+                backgroundColor: 'white',
+                }}
+            >
+                <Text
+                style={{
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: '#9CA3AF',
+                    letterSpacing: 0.5,
+                }}
+                >
+                {title}
+                </Text>
+            </View>
+            )}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={refreshMusicList} />
+          }
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 12,
+            paddingBottom: 110,
+          }}
+        />
+      ) : (
+        <View className="flex-1 items-center justify-center px-4">
+          <Text className="text-center text-sm text-gray-600">
+            No music in library. Press + to add music.
+          </Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        className="absolute right-4 bottom-24 bg-gray-800 px-3 py-2 rounded-full"
+        onPress={() => setShowAZ(true)}
+      >
+        <Text className="text-white text-sm font-medium">A–Z</Text>
+      </TouchableOpacity>
+
+      {showAZ && (
+        <View className="absolute right-1 top-20 bottom-20 justify-center items-center bg-white/90 rounded-md px-1">
+          {alphabet.map((letter) => (
+            <TouchableOpacity key={letter} onPress={() => scrollToLetter(letter)}>
+              <Text className="text-xs text-gray-600 py-0.5 px-1">
+                {letter}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {indicatorLetter !== '' && (
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            position: 'absolute',
+            alignSelf: 'center',
+            top: '45%',
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            padding: 20,
+            borderRadius: 12,
+          }}
+        >
+          <Text className="text-white text-3xl font-bold">
+            {indicatorLetter}
+          </Text>
+        </Animated.View>
+      )}
+
+      <MetadataForm
+        visible={showMetadataForm}
+        musicId={selectedMusicId}
+        pdfUri={pendingPdfUri ?? undefined}
+        initialTitle={prefilledTitle}
+        onSave={handleMetadataSave}
+        onCancel={handleMetadataCancel}
+        mode={infoboxMode}
+      />
+
+      {showDeleteForm && (
+        <DeleteModal
+          itemId={deletedMusicId!}
+          onCancel={() => setShowDeleteForm(false)}
+          onDelete={async () => {
+            if (deletedMusicId) await deleteMusic(deletedMusicId);
+            setShowDeleteForm(false);
+            setDeletedMusicId(undefined);
+            await refreshMusicList();
+          }}
+        />
+      )}
+
+      {/* <TouchableOpacity
+        className="absolute bottom-6 right-6 bg-blue-500 rounded w-14 h-14 justify-center items-center shadow-md shadow-black/20 elevation-5"
+        onPress={handleImport}
+      >
+        <Ionicons name="add" size={32} color="white" />
+      </TouchableOpacity> */}
+    </View>
+  );
 };
 
 export default LibraryScreen;

@@ -7,6 +7,10 @@
     "preview": {
       "developmentClient": false,
       "distribution": "internal"
+    },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
     }
   }
 }

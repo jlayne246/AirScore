@@ -9,27 +9,26 @@ import {
   Modal,
   FlatList,
   Dimensions,
+  Image,
 } from 'react-native';
-import { MusicMetadata, Label, MusicMetadataWithLabels } from '../types';
+import { MusicMetadata, Label, MusicMetadataWithLabels, MetadataFormData, DOCUMENT_TYPES, GENRE_OPTIONS } from '../types';
 import {
   saveCompleteMetadata,
   getMusicWithMetadata,
   getAllLabels,
   createOrGetLabel,
-  getAllGroups,
-  setMusicGroups,
-  getGroupsForMusic,
-  addMusicToGroup
+  getAllSetlists,
+  setMusicSetlists,
+  getSetlistNamesForMusic,
+  addMusicToSetlist,
+  metadataExists
 } from '../utils/database';
-
-interface MetadataFormData {
-  title: string;
-  groups: string[];
-  // No labels here since you're not saving them to DB
-}
+import ManageSetlistsModal from '../components/ManageSetlistsModal'
+import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
 
 interface MetadataFormProps {
   musicId?: number;
+  pdfUri?: string;
   initialTitle?: string;
   initialData?: MusicMetadataWithLabels;
   onSave: (formData?: MetadataFormData) => void;
@@ -40,6 +39,7 @@ interface MetadataFormProps {
 
 const MetadataForm: React.FC<MetadataFormProps> = ({
   musicId,
+  pdfUri,
   initialTitle,
   initialData,
   onSave,
@@ -50,16 +50,20 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   // Form state
   const [formData, setFormData] = useState<Omit<MusicMetadata, 'id'>>({
     title: '',
+    document_type: "Single Work",
     composer: '',
+    arranger: '',
+    editor: '',
+    publisher: '',
     genre: '',
     key_signature: '',
-    rating: 0,
-    difficulty: 0,
     time_signature: '',
     page_count: 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   });
+
+  const [coverThumbnail, setCoverThumbnail] = useState<string | null>(null);
 
   // Labels state
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
@@ -67,16 +71,19 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   const [newLabelText, setNewLabelText] = useState('');
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [genreModalVisible, setGenreModalVisible] = useState(false);
+  const [manageSetlistsVisible, setManageSetlistsVisible] = useState(false);
+  const [showNewSetlistForm, setShowNewSetlistForm] = useState(false);
 
-  // Groups state
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-  const [availableGroups, setAvailableGroups] = useState<string[]>([]);
-  const [newGroupText, setNewGroupText] = useState('');
-  const [showGroupModal, setShowGroupModal] = useState(false);
+  // Setlists state
+  const [selectedSetlists, setselectedSetlists] = useState<string[]>([]);
+  const [availableSetlists, setavailableSetlists] = useState<string[]>([]);
+  const [newSetlistText, setNewSetlistText] = useState('');
+  const [showSetlistModal, setShowSetlistModal] = useState(false);
 
-  // Rating and difficulty arrays for picker-style selection
-  const ratings = [1, 2, 3, 4, 5];
-  const difficulties = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const [showAllOptions, setShowAllOptions] = useState(false);
+  const [showAllKeyOptions, setShowAllKeyOptions] = useState(false);
+  const [showAllTimeOptions, setShowAllTimeOptions] = useState(false);
 
   // Common key signatures
   const keySignatures = [
@@ -99,6 +106,46 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     }
   }, [visible, musicId]);
 
+  useEffect(() => {
+    if (!visible) return;
+
+    const loadDocumentData = async () => {
+      if (!pdfUri) return;
+
+      try {
+        const pageCount = await AirScorePdfRenderer.getPageCount(pdfUri);
+        console.log(`URI: ${pdfUri} | Page Count: ${pageCount}`)
+
+        setFormData(prev => {
+          const next = {
+            ...prev,
+            page_count: pageCount,
+          };
+
+          console.log("Previous page count:", prev.page_count);
+          console.log("Next page count:", next.page_count);
+
+          return next;
+        });
+
+        // console.log(`FormData Page Count: ${formData.page_count}`)
+
+        const result = await AirScorePdfRenderer.renderPage({
+          pdfPath: pdfUri,
+          page: 1,
+          width: 400,
+          height: 600,
+        });
+
+        setCoverThumbnail(result.uri);
+      } catch (error) {
+        console.error("Failed to load PDF metadata:", error);
+      }
+    };
+
+    loadDocumentData();
+  }, [visible, pdfUri]);
+
   // Handle initialTitle changes (for new items)
   useEffect(() => {
     if (visible && initialTitle && mode !== 'edit' && mode !== 'view') {
@@ -111,15 +158,15 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
 
   const loadData = async () => {
     try {
-      // Load available labels and groups
+      // Load available labels and setlists
       const labels = await getAllLabels();
       setAvailableLabels(labels);
 
-      // Load available groups from database
-      const groups = await getAllGroups();
-      setAvailableGroups(groups);
+      // Load available setlists from database
+      const setlists = await getAllSetlists();
+      setavailableSetlists(setlists);
 
-      console.log(musicId, groups);
+      console.log(musicId, setlists);
 
       // For edit/view modes, load existing metadata
       if ((mode === 'edit' || mode === 'view') && musicId) {
@@ -128,30 +175,60 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           const metadata = await getMusicWithMetadata(musicId);
           if (metadata) {
             const { labels, ...metadataOnly } = metadata;
-            const itemGroups = await getGroupsForMusic(musicId); // Separate function
-            console.log("IN METADATA: ", labels, metadataOnly, itemGroups);
-            setFormData(metadataOnly);
+            const itemsetlists = await getSetlistNamesForMusic(musicId); // Separate function
+            console.log("IN METADATA: ", labels, metadataOnly, itemsetlists);
+            setFormData(prev => ({
+              ...metadataOnly,
+              page_count: prev.page_count || metadataOnly.page_count || 0,
+            }));
             setSelectedLabels(labels);
-            setSelectedGroups(itemGroups || []);
+            setselectedSetlists(itemsetlists || []);
           }
         } else {
           const { labels, ...metadataOnly } = initialData;
-          const itemGroups = await getGroupsForMusic(musicId); // Separate function
-          setFormData(metadataOnly);
+          const itemsetlists = await getSetlistNamesForMusic(musicId); // Separate function
+          console.log("Initial Data: ", labels, metadataOnly, itemsetlists);
+          setFormData(prev => ({
+            ...metadataOnly,
+            page_count: prev.page_count || metadataOnly.page_count || 0,
+          }));
           setSelectedLabels(labels);
-          setSelectedGroups(itemGroups || []);
+          setselectedSetlists(itemsetlists || []);
 
-          console.log("Data - ", labels, metadataOnly, itemGroups)
+          console.log("Data - ", labels, metadataOnly, itemsetlists)
         }
       }
       // For new items, just set the title if provided
       else if (initialTitle) {
+        // setFormData(prev => ({
+        //   ...prev,
+        //   title: initialTitle
+        // }));
+        // setFormData(prev => {
+        //   console.log('prev:', prev); // This will log the previous state
+        //   return {
+        //     ...prev,
+        //     title: initialTitle
+        //   };
+        // });
         setFormData(prev => ({
           ...prev,
-          title: initialTitle
+          title: initialTitle,
+          document_type: "Single Work",
+          composer: '',
+          arranger: '',
+          editor: '',
+          publisher: '',
+          genre: '',
+          key_signature: '',
+          time_signature: '',
+          page_count: prev.page_count || 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         }));
+        console.log(formData)
         // Set default group for new items
-        setSelectedGroups([]);
+        setselectedSetlists([]);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -160,32 +237,93 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
   };
 
   const handleSave = async () => {
-    if (!formData.title.trim()) {
-      Alert.alert('Error', 'Title is required');
+    const title = formData.title.trim();
+
+    if (!title) {
+      Alert.alert("Error", "Title is required");
       return;
     }
 
+    const resolvedPageCount =
+      pdfUri
+        ? await AirScorePdfRenderer.getPageCount(pdfUri)
+        : Number(formData.page_count) || 0;
+
+    const cleanedFormData = {
+      ...formData,
+      title,
+      composer: formData.composer?.trim() || "",
+      document_type: formData.document_type.trim() || "",
+      arranger: formData.arranger?.trim() || "",
+      editor: formData.editor?.trim() || "",
+      publisher: formData.publisher?.trim() || "",
+      genre: formData.genre?.trim() || "",
+      key_signature: formData.key_signature?.trim() || "",
+      time_signature: formData.time_signature?.trim() || "",
+      page_count: resolvedPageCount,
+      updated_at: new Date().toISOString(),
+    };
+
+    // ADD MODE: do not save here; let parent create music first.
+    if (mode === "add" || !musicId) {
+      onSave({
+        title: cleanedFormData.title,
+        document_type: cleanedFormData.document_type,
+        composer: cleanedFormData.composer,
+        arranger: cleanedFormData.arranger,
+        editor: cleanedFormData.editor,
+        publisher: cleanedFormData.publisher,
+        genre: cleanedFormData.genre,
+        key_signature: cleanedFormData.key_signature,
+        time_signature: cleanedFormData.time_signature,
+        page_count: cleanedFormData.page_count,
+        setlists: selectedSetlists,
+        labels: selectedLabels,
+      });
+
+      return;
+    }
+
+    // EDIT MODE: music already exists, so save directly.
     setIsLoading(true);
+
     try {
-      // For existing items with musicId, save to database
-      if (musicId) {
-        await saveCompleteMetadata(musicId, formData, selectedLabels);
+      const duplicate = await metadataExists(
+        cleanedFormData.title,
+        cleanedFormData.composer,
+        musicId
+      );
 
-        await setMusicGroups(musicId, selectedGroups);
-
-        Alert.alert('Success', 'Metadata saved successfully');
-        console.log('Saving Metadata:', { musicId, formData, selectedLabels });
+      if (duplicate) {
+        Alert.alert(
+          "Duplicate music",
+          "A piece with this title and composer already exists."
+        );
+        return;
       }
 
-      // Always call onSave with the form data (for both new and existing items)
+      await saveCompleteMetadata(musicId, cleanedFormData, selectedLabels);
+      await setMusicSetlists(musicId, selectedSetlists);
+
+      Alert.alert("Success", "Metadata saved successfully");
+
       onSave({
-        title: formData.title,
-        groups: selectedGroups,
+        title: cleanedFormData.title,
+        document_type: cleanedFormData.document_type,
+        composer: cleanedFormData.composer,
+        arranger: cleanedFormData.arranger,
+        editor: cleanedFormData.editor,
+        publisher: cleanedFormData.publisher,
+        genre: cleanedFormData.genre,
+        key_signature: cleanedFormData.key_signature,
+        time_signature: cleanedFormData.time_signature,
+        page_count: cleanedFormData.page_count,
+        setlists: selectedSetlists,
+        labels: selectedLabels,
       });
     } catch (error) {
-      console.error('Failed to save metadata:', error);
-      Alert.alert('Error', 'Failed to save metadata');
-      onSave(undefined);
+      console.error("Failed to save metadata:", error);
+      Alert.alert("Error", "Failed to save metadata");
     } finally {
       setIsLoading(false);
     }
@@ -222,78 +360,79 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     );
   };
 
-  const handleAddGroup = () => {
-    if (!newGroupText.trim()) return;
+  const handleAddSetlist = () => {
+    const setlistName = newSetlistText.trim();
 
-    const groupName = newGroupText.trim();
+    if (!setlistName) return;
 
-    // Add to available groups if not already there
-    if (!availableGroups.includes(groupName)) {
-      setAvailableGroups(prev => [...prev, groupName]);
+    if (!availableSetlists.includes(setlistName)) {
+      setavailableSetlists(prev => [...prev, setlistName]);
     }
 
-    // Add to selected groups if not already selected
-    if (!selectedGroups.includes(groupName)) {
-      setSelectedGroups(prev => [...prev, groupName]);
+    if (!selectedSetlists.includes(setlistName)) {
+      setselectedSetlists(prev => [...prev, setlistName]);
     }
 
-    setNewGroupText('');
-    setShowGroupModal(false);
+    setNewSetlistText('');
+    setShowNewSetlistForm(false);
   };
 
-  const toggleGroup = (groupName: string) => {
-    setSelectedGroups(prev =>
+  const toggleSetlist = (groupName: string) => {
+    setselectedSetlists(prev =>
       prev.includes(groupName)
         ? prev.filter(g => g !== groupName)
         : [...prev, groupName]
     );
   };
 
-  const renderRatingSelector = () => (
-    <View className="my-3">
-      <Text className="text-base font-semibold text-gray-800 mb-2">Rating (1-5 stars)</Text>
-      <View className="flex-row flex-wrap gap-2">
-        {ratings.map(rating => (
-          <TouchableOpacity
-            key={rating}
-            className={`bg-white border border-gray-300 rounded-lg py-2 px-3 ${formData.rating === rating ? 'bg-blue-500 border-blue-500' : ''
-              }`}
-            onPress={() => setFormData(prev => ({ ...prev, rating }))}
-          >
-            <Text className={`text-base ${formData.rating === rating ? 'text-white' : 'text-gray-800'
-              }`}>
-              {'★'.repeat(rating)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
+  // const renderRatingSelector = () => (
+  //   <View className="my-3">
+  //     <Text className="text-base font-semibold text-gray-800 mb-2">Rating (1-5 stars)</Text>
+  //     <View className="flex-row flex-wrap gap-2">
+  //       {ratings.map(rating => (
+  //         <TouchableOpacity
+  //           key={rating}
+  //           className={`bg-white border border-gray-300 rounded-lg py-2 px-3 ${formData.rating === rating ? 'bg-blue-500 border-blue-500' : ''
+  //             }`}
+  //           onPress={() => setFormData(prev => ({ ...prev, rating }))}
+  //         >
+  //           <Text className={`text-base ${formData.rating === rating ? 'text-white' : 'text-gray-800'
+  //             }`}>
+  //             {'★'.repeat(rating)}
+  //           </Text>
+  //         </TouchableOpacity>
+  //       ))}
+  //     </View>
+  //   </View>
+  // );
 
-  const renderDifficultySelector = () => (
-    <View className="my-3">
-      <Text className="text-base font-semibold text-gray-800 mb-2">Difficulty (1-10)</Text>
-      <View className="flex-row flex-wrap gap-2">
-        {difficulties.map(difficulty => (
-          <TouchableOpacity
-            key={difficulty}
-            className={`bg-white border border-gray-300 rounded-lg py-2 px-3 min-w-9 items-center ${formData.difficulty === difficulty ? 'bg-orange-500 border-orange-500' : ''
-              }`}
-            onPress={() => setFormData(prev => ({ ...prev, difficulty }))}
-          >
-            <Text className={`text-base font-semibold ${formData.difficulty === difficulty ? 'text-white' : 'text-gray-800'
-              }`}>
-              {difficulty}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
+  // const renderDifficultySelector = () => (
+  //   <View className="my-3">
+  //     <Text className="text-base font-semibold text-gray-800 mb-2">Difficulty (1-10)</Text>
+  //     <View className="flex-row flex-wrap gap-2">
+  //       {difficulties.map(difficulty => (
+  //         <TouchableOpacity
+  //           key={difficulty}
+  //           className={`bg-white border border-gray-300 rounded-lg py-2 px-3 min-w-9 items-center ${formData.difficulty === difficulty ? 'bg-orange-500 border-orange-500' : ''
+  //             }`}
+  //           onPress={() => setFormData(prev => ({ ...prev, difficulty }))}
+  //         >
+  //           <Text className={`text-base font-semibold ${formData.difficulty === difficulty ? 'text-white' : 'text-gray-800'
+  //             }`}>
+  //             {difficulty}
+  //           </Text>
+  //         </TouchableOpacity>
+  //       ))}
+  //     </View>
+  //   </View>
+  // );
 
-  const renderQuickSelectButtons = (options: string[], field: keyof typeof formData) => {
-    const [showAllOptions, setShowAllOptions] = useState(false);
-
+  const renderQuickSelectButtons = (
+    options: string[],
+    field: keyof typeof formData,
+    showAllOptions: boolean,
+    setShowAllOptions: React.Dispatch<React.SetStateAction<boolean>>
+  ) => {
     const visibleOptions = showAllOptions ? options : options.slice(0, 5);
     const hiddenCount = options.length - visibleOptions.length;
 
@@ -302,14 +441,14 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
         {visibleOptions.map(option => (
           <TouchableOpacity
             key={option}
-            className={`bg-white border border-gray-300 rounded-md py-1.5 px-2.5 mr-2 mb-2 ${formData[field] === option ? 'bg-green-500 border-green-500' : ''
-              }`}
+            className={`bg-white border border-gray-300 rounded-md py-1.5 px-2.5 mr-2 mb-2 ${
+              formData[field] === option ? 'bg-green-500 border-green-500' : ''
+            }`}
             onPress={() => setFormData(prev => ({ ...prev, [field]: option }))}
           >
-            <Text
-              className={`text-sm ${formData[field] === option ? 'text-white' : 'text-gray-800'
-                }`}
-            >
+            <Text className={`text-sm ${
+              formData[field] === option ? 'text-white' : 'text-gray-800'
+            }`}>
               {option}
             </Text>
           </TouchableOpacity>
@@ -327,255 +466,560 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     );
   };
 
-
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View className="flex-1 bg-gray-50">
-        <View className="flex-row justify-between items-center px-5 py-4 bg-white border-b border-gray-200 pt-12">
-          <TouchableOpacity onPress={onCancel} className="py-2 px-3">
-            <Text className="text-blue-500 text-base">Cancel</Text>
-          </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-800">
-            {mode === 'edit' ? 'Edit Metadata' : mode === 'view' ? 'View Metadata' : 'Add Metadata'}
-          </Text>
-          <TouchableOpacity
-            onPress={handleSave}
-            className={`py-2 px-4 rounded-lg ${isLoading ? 'bg-gray-400' : 'bg-blue-500'
-              }`}
-            disabled={isLoading}
-          >
-            <Text className="text-white text-base font-semibold">
-              {isLoading ? 'Saving...' : 'Save'}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      >
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.35)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 24,
+        }}
+      >
+        <View
+          style={{
+            width: '82%',
+            maxWidth: 900,
+            height: '88%',
+            backgroundColor: '#F9FAFB',
+            borderRadius: 18,
+            overflow: 'hidden',
+          }}
+        >
+          <View className="flex-row justify-between items-center px-5 py-4 bg-white border-b border-gray-200">
+            <TouchableOpacity onPress={onCancel} className="py-2 px-3">
+              <Text className="text-blue-500 text-base">Cancel</Text>
+            </TouchableOpacity>
+            <Text className="text-lg font-semibold text-gray-800">
+              {mode === 'edit' ? 'Edit Metadata' : mode === 'view' ? 'View Metadata' : 'Add Metadata'}
             </Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
-          {/* Title */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Title *</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.title}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
-              placeholder="Enter title"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-
-          {/* Composer */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Composer</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.composer}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, composer: text }))}
-              placeholder="Enter composer name"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-
-          {/* Genre */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Genre</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.genre}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, genre: text }))}
-              placeholder="Enter genre"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-
-          {/* Key Signature */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Key Signature</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.key_signature}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, key_signature: text }))}
-              placeholder="Enter key signature"
-              placeholderTextColor="#9CA3AF"
-            />
-            {renderQuickSelectButtons(keySignatures, 'key_signature')}
-          </View>
-
-          {/* Time Signature */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Time Signature</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.time_signature}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, time_signature: text }))}
-              placeholder="Enter time signature"
-              placeholderTextColor="#9CA3AF"
-            />
-            {renderQuickSelectButtons(timeSignatures, 'time_signature')}
-          </View>
-
-          {/* Page Count */}
-          <View className="my-3">
-            <Text className="text-base font-semibold text-gray-800 mb-2">Page Count</Text>
-            <TextInput
-              className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
-              value={formData.page_count?.toString() || ''}
-              onChangeText={(text) => setFormData(prev => ({
-                ...prev,
-                page_count: parseInt(text) || 0
-              }))}
-              placeholder="Enter page count"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="numeric"
-            />
-          </View>
-
-          {/* Rating */}
-          {renderRatingSelector()}
-
-          {/* Difficulty */}
-          {renderDifficultySelector()}
-
-          {/* Groups */}
-          <View className="my-3">
-            <View className="flex-row justify-between items-center mb-2">
-              <Text className="text-base font-semibold text-gray-800">Groups</Text>
-
-              <TouchableOpacity
-                onPress={() => setShowGroupModal(true)}
-                className="bg-blue-500 px-4 py-2 rounded-md"
-                style={{ minHeight: 36, justifyContent: 'center' }}
-              >
-                <Text className="text-white text-sm font-semibold leading-none self-center" style={{ lineHeight: 18 }}>
-                  + Add Group
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View className="flex-row flex-wrap gap-2">
-              {availableGroups.map(group => (
-                <TouchableOpacity
-                  key={group}
-                  className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedGroups.includes(group) ? 'bg-blue-500 border-blue-500' : ''
-                    }`}
-                  onPress={() => toggleGroup(group)}
-                >
-                  <Text className={`text-sm ${selectedGroups.includes(group) ? 'text-white' : 'text-gray-800'
-                    }`}>
-                    {group}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {selectedGroups.length === 0 && (
-              <Text className="text-sm text-gray-500 mt-2 italic">
-                No groups selected. Item will be placed in "Ungrouped".
+            <TouchableOpacity
+              onPress={handleSave}
+              className={`py-2 px-4 rounded-lg ${isLoading ? 'bg-gray-400' : 'bg-blue-500'
+                }`}
+              disabled={isLoading}
+            >
+              <Text className="text-white text-base font-semibold">
+                {isLoading ? 'Saving...' : 'Save'}
               </Text>
-            )}
+            </TouchableOpacity>
           </View>
 
-          {/* Labels */}
-          <View className="my-3">
-            <View className="flex-row justify-between items-center mb-2">
-              <Text className="text-base font-semibold text-gray-800">Labels</Text>
+          <ScrollView
+            className="flex-1 px-5"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingBottom: 24,
+            }}
+          >
+            {/* Title */}
+            <Text className="text-sm text-gray-800 font-semibold mt-3 mb-1">GENERAL</Text>
+            <View className="h-px bg-gray-200 my-2" />
+
+            <View className="flex-row items-start my-3">
+              {coverThumbnail && (
+                <Image
+                  source={{ uri: coverThumbnail }}
+                  style={{
+                    width: 220,
+                    height: 270,
+                    resizeMode: 'contain',
+                    marginRight: 12,
+                    borderWidth: 1,
+                    borderColor: '#ddd',
+                  }}
+                />
+              )}
+
+              <View style={{ flex: 1 }}>
+                <View className="mb-3">
+                  <Text className="text-base font-medium text-gray-800 mb-2">
+                    Title
+                  </Text>
+
+                  <TextInput
+                    className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                    value={formData.title}
+                    onChangeText={(text) =>
+                      setFormData(prev => ({ ...prev, title: text }))
+                    }
+                    placeholder="Enter title"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+
+                {formData.document_type === "Single Work" ? (
+                  <>
+                    <View className="mb-3">
+                      <Text className="text-base font-medium text-gray-800 mb-2">
+                        Composer
+                      </Text>
+
+                      <TextInput
+                        className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                        value={formData.composer}
+                        onChangeText={(text) =>
+                          setFormData(prev => ({ ...prev, composer: text }))
+                        }
+                        placeholder="Enter composer name"
+                        placeholderTextColor="#9CA3AF"
+                      />
+                    </View>
+
+                    <View>
+                      <Text className="text-base font-medium text-gray-800 mb-2">
+                        Arranger
+                      </Text>
+
+                      <TextInput
+                        className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                        value={formData.arranger}
+                        onChangeText={(text) =>
+                          setFormData(prev => ({ ...prev, arranger: text }))
+                        }
+                        placeholder="Enter arranger name"
+                        placeholderTextColor="#9CA3AF"
+                      />
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View className="mb-3">
+                      <Text className="text-base font-medium text-gray-800 mb-2">
+                        Editor
+                      </Text>
+
+                      <TextInput
+                        className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                        value={formData.editor}
+                        onChangeText={(text) =>
+                          setFormData(prev => ({ ...prev, editor: text }))
+                        }
+                        placeholder="Enter editor name"
+                        placeholderTextColor="#9CA3AF"
+                      />
+                    </View>
+
+                    <View>
+                      <Text className="text-base font-medium text-gray-800 mb-2">
+                        Publisher
+                      </Text>
+
+                      <TextInput
+                        className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                        value={formData.publisher}
+                        onChangeText={(text) =>
+                          setFormData(prev => ({ ...prev, publisher: text }))
+                        }
+                        placeholder="Enter publisher name"
+                        placeholderTextColor="#9CA3AF"
+                      />
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+
+            <Text className="text-sm text-gray-800 font-semibold mt-3 mb-1">MUSIC</Text>
+            <View className="h-px bg-gray-200 my-2" />
+            {/* Genre */}
+            <View className="my-3">
+              <Text className="text-base font-medium text-gray-800 mb-2">Genre</Text>
 
               <TouchableOpacity
-                onPress={() => setShowLabelModal(true)}
-                className="bg-green-500 px-4 py-2 rounded-md"
-                style={{ minHeight: 36, justifyContent: 'center' }}
+                onPress={() => setGenreModalVisible(true)}
+                style={{
+                  backgroundColor: "white",
+                  borderWidth: 1,
+                  borderColor: "#D1D5DB",
+                  borderRadius: 10,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                }}
               >
-                <Text className="text-white text-sm font-semibold leading-none self-center" style={{ lineHeight: 18 }}>
-                  + Add Label
+                <Text style={{ fontSize: 16, color: formData.genre ? "#111827" : "#9CA3AF" }}>
+                  {formData.genre || "Select genre"}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            <View className="flex-row flex-wrap gap-2">
-              {availableLabels.map(label => (
-                <TouchableOpacity
-                  key={label.id}
-                  className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedLabels.includes(label.name) ? 'bg-purple-500 border-purple-500' : ''
-                    }`}
-                  onPress={() => toggleLabel(label.name)}
+            {/* Document Type */}
+            <View className="my-3">
+              <Text className="text-base font-medium text-gray-800 mb-2">
+                Document Type
+              </Text>
+
+              <View className="flex-row flex-wrap mt-2">
+                {DOCUMENT_TYPES.map(type => {
+                  const selected = formData.document_type === type;
+
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      className={`border rounded-full py-2 px-3 mr-2 mb-2 ${
+                        selected
+                          ? 'bg-blue-500 border-blue-500'
+                          : 'bg-white border-gray-300'
+                      }`}
+                      onPress={() =>
+                        setFormData(prev => ({
+                          ...prev,
+                          document_type: type,
+                        }))
+                      }
+                    >
+                      <Text
+                        className={`text-sm ${
+                          selected ? 'text-white' : 'text-gray-800'
+                        }`}
+                      >
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {formData.document_type === "Single Work" && (
+              <>
+                {/* Key Signature */}
+                <View className="my-3">
+                  <Text className="text-base font-medium text-gray-800 mb-2">Key Signature</Text>
+                  <TextInput
+                    className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                    value={formData.key_signature}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, key_signature: text }))}
+                    placeholder="Enter key signature"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  {renderQuickSelectButtons(
+                    keySignatures,
+                    'key_signature',
+                    showAllKeyOptions,
+                    setShowAllKeyOptions
+                  )}
+                </View>
+
+                {/* Time Signature */}
+                <View className="my-3">
+                  <Text className="text-base font-medium text-gray-800 mb-2">Time Signature</Text>
+                  <TextInput
+                    className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
+                    value={formData.time_signature}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, time_signature: text }))}
+                    placeholder="Enter time signature"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  {renderQuickSelectButtons(
+                    timeSignatures,
+                    'time_signature',
+                    showAllTimeOptions,
+                    setShowAllTimeOptions
+                  )}
+                </View>
+              </>
+            )}
+
+            
+
+            <Text className="text-sm text-gray-800 font-semibold mt-3 mb-1">DOCUMENT</Text>
+            <View className="h-px bg-gray-200 my-2" />
+            {/* Page Count */}
+            <View className="my-3">
+              <Text className="text-base font-medium text-gray-800 mb-2">Page Count</Text>
+              <View className="bg-white border border-gray-300 rounded-lg px-4 py-3">
+                <Text className="text-base text-gray-800">
+                  {formData.page_count || 0} pages
+                </Text>
+              </View>
+            </View>
+
+            {/* Rating */}
+            {/* {renderRatingSelector()} */}
+
+            {/* Difficulty */}
+            {/* {renderDifficultySelector()} */}
+
+            <Text className="text-sm text-gray-800 font-semibold mt-3 mb-1">ORGANISATION</Text>
+            <View className="h-px bg-gray-200 my-2" />
+
+            {/* setlists */}
+            <View className="my-3">
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-base font-medium text-gray-800">
+                  Setlists
+                </Text>
+
+                {!showNewSetlistForm && (
+                  <TouchableOpacity
+                    onPress={() => setShowNewSetlistForm(true)}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: "#D1D5DB",
+                      borderRadius: 10,
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      backgroundColor: "white",
+                    }}
+                  >
+                    <Text style={{ color: "#2563EB", fontWeight: "700", fontSize: 16 }}>
+                      + New Setlist
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {showNewSetlistForm && (
+                <View
+                  style={{
+                    backgroundColor: "white",
+                    borderWidth: 1,
+                    borderColor: "#E5E7EB",
+                    borderRadius: 12,
+                    padding: 12,
+                    marginBottom: 12,
+                  }}
                 >
-                  <Text className={`text-sm ${selectedLabels.includes(label.name) ? 'text-white' : 'text-gray-800'
-                    }`}>
-                    {label.name}
+                  <TextInput
+                    value={newSetlistText}
+                    onChangeText={setNewSetlistText}
+                    placeholder="Add new setlist name here"
+                    placeholderTextColor="#9CA3AF"
+                    autoFocus
+                    style={{
+                      borderWidth: 1,
+                      borderColor: "#D1D5DB",
+                      borderRadius: 10,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      fontSize: 16,
+                      color: "#111827",
+                      marginBottom: 10,
+                    }}
+                  />
+
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "flex-end",
+                      gap: 10,
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowNewSetlistForm(false);
+                        setNewSetlistText("");
+                      }}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <Text style={{ color: "#6B7280", fontWeight: "600" }}>
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={handleAddSetlist}
+                      style={{
+                        backgroundColor: "#2563EB",
+                        borderRadius: 10,
+                        paddingHorizontal: 14,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <Text style={{ color: "white", fontWeight: "700" }}>
+                        Create
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              <View className="flex-row flex-wrap gap-2">
+                {availableSetlists.map(group => (
+                  <TouchableOpacity
+                    key={group}
+                    className={`border rounded-full py-1.5 px-3 ${
+                      selectedSetlists.includes(group)
+                        ? "bg-blue-500 border-blue-500"
+                        : "bg-white border-gray-300"
+                    }`}
+                    onPress={() => toggleSetlist(group)}
+                  >
+                    <Text
+                      className={`text-sm ${
+                        selectedSetlists.includes(group)
+                          ? "text-white"
+                          : "text-gray-800"
+                      }`}
+                    >
+                      {group}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {selectedSetlists.length === 0 && (
+                <Text className="text-sm text-gray-500 mt-2 italic">
+                  No setlists selected.
+                </Text>
+              )}
+            </View>
+
+            {/* Labels */}
+            <View className="my-3">
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-base font-medium text-gray-800">Labels</Text>
+
+                <TouchableOpacity
+                  onPress={() => setShowLabelModal(true)}
+                  className="bg-green-500 px-4 py-2 rounded-md"
+                  style={{ minHeight: 36, justifyContent: 'center' }}
+                >
+                  <Text className="text-white text-sm font-medium leading-none self-center" style={{ lineHeight: 18 }}>
+                    + Add Label
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </ScrollView>
+              </View>
 
-        {/* Add Group Modal */}
-        <Modal visible={showGroupModal} transparent animationType="fade">
-          <View className="flex-1 bg-black/50 justify-center items-center">
-            <View className="bg-white rounded-xl p-6 mx-5 w-full max-w-sm">
-              <Text className="text-lg font-semibold text-gray-800 mb-4 text-center">Add New Group</Text>
-              <TextInput
-                className="border border-gray-300 rounded-lg px-4 py-3 text-base mb-5"
-                value={newGroupText}
-                onChangeText={setNewGroupText}
-                placeholder="Enter group name"
-                placeholderTextColor="#9CA3AF"
-                autoFocus
-              />
-              <View className="flex-row gap-3">
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowGroupModal(false);
-                    setNewGroupText('');
-                  }}
-                  className="flex-1 py-3 rounded-lg border border-gray-300 items-center"
-                >
-                  <Text className="text-base text-gray-800">Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleAddGroup}
-                  className="flex-1 bg-blue-500 py-3 rounded-lg items-center"
-                >
-                  <Text className="text-base text-white font-semibold">Add</Text>
-                </TouchableOpacity>
+              <View className="flex-row flex-wrap gap-2">
+                {availableLabels.map(label => (
+                  <TouchableOpacity
+                    key={label.id}
+                    className={`bg-white border border-gray-300 rounded-full py-1.5 px-3 ${selectedLabels.includes(label.name) ? 'bg-purple-500 border-purple-500' : ''
+                      }`}
+                    onPress={() => toggleLabel(label.name)}
+                  >
+                    <Text className={`text-sm ${selectedLabels.includes(label.name) ? 'text-white' : 'text-gray-800'
+                      }`}>
+                      {label.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
-          </View>
-        </Modal>
+          </ScrollView>
 
-        {/* Add Label Modal */}
-        <Modal visible={showLabelModal} transparent animationType="fade">
-          <View className="flex-1 bg-black/50 justify-center items-center">
-            <View className="bg-white rounded-xl p-6 mx-5 w-full max-w-sm">
-              <Text className="text-lg font-semibold text-gray-800 mb-4 text-center">Add New Label</Text>
-              <TextInput
-                className="border border-gray-300 rounded-lg px-4 py-3 text-base mb-5"
-                value={newLabelText}
-                onChangeText={setNewLabelText}
-                placeholder="Enter label name"
-                placeholderTextColor="#9CA3AF"
-                autoFocus
-              />
-              <View className="flex-row gap-3">
-                <TouchableOpacity
-                  onPress={() => {
-                    setShowLabelModal(false);
-                    setNewLabelText('');
-                  }}
-                  className="flex-1 py-3 rounded-lg border border-gray-300 items-center"
-                >
-                  <Text className="text-base text-gray-800">Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleAddLabel}
-                  className="flex-1 bg-green-500 py-3 rounded-lg items-center"
-                >
-                  <Text className="text-base text-white font-semibold">Add</Text>
-                </TouchableOpacity>
+          {/* Add Setlist Modal */}
+          {/* {musicId && (
+            <ManageSetlistsModal
+              visible={manageSetlistsVisible}
+              musicId={musicId}
+              onClose={() => setManageSetlistsVisible(false)}
+              onSaved={async () => {
+                setManageSetlistsVisible(false);
+
+                const updatedSetlists = await getSetlistNamesForMusic(musicId);
+                setselectedSetlists(updatedSetlists);
+              }}
+            />
+          )} */}
+          
+
+          {/* Add Label Modal */}
+          <Modal visible={showLabelModal} transparent animationType="fade">
+            <View className="flex-1 bg-black/50 justify-center items-center">
+              <View className="bg-white rounded-xl p-6 mx-5 w-full max-w-sm">
+                <Text className="text-lg font-semibold text-gray-800 mb-4 text-center">Add New Label</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-lg px-4 py-3 text-base mb-5"
+                  value={newLabelText}
+                  onChangeText={setNewLabelText}
+                  placeholder="Enter label name"
+                  placeholderTextColor="#9CA3AF"
+                  autoFocus
+                />
+                <View className="flex-row gap-3">
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowLabelModal(false);
+                      setNewLabelText('');
+                    }}
+                    className="flex-1 py-3 rounded-lg border border-gray-300 items-center"
+                  >
+                    <Text className="text-base text-gray-800">Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleAddLabel}
+                    className="flex-1 bg-green-500 py-3 rounded-lg items-center"
+                  >
+                    <Text className="text-base text-white font-semibold">Add</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        </Modal>
+          </Modal>
+        </View>
       </View>
+
+      <Modal visible={genreModalVisible} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.35)",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <View
+            style={{
+              width: "70%",
+              maxWidth: 520,
+              backgroundColor: "white",
+              borderRadius: 18,
+              padding: 20,
+            }}
+          >
+            <Text style={{ fontSize: 22, fontWeight: "700", marginBottom: 16 }}>
+              Select Genre
+            </Text>
+
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {GENRE_OPTIONS.map((genre) => {
+                const selected = formData.genre === genre;
+
+                return (
+                  <TouchableOpacity
+                    key={genre}
+                    onPress={() => {
+                      setFormData((prev) => ({ ...prev, genre }));
+                      setGenreModalVisible(false);
+                    }}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 999,
+                      backgroundColor: selected ? "#2563EB" : "#F3F4F6",
+                    }}
+                  >
+                    <Text style={{ color: selected ? "white" : "#374151", fontWeight: "600" }}>
+                      {genre}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setGenreModalVisible(false)}
+              style={{ marginTop: 20, alignSelf: "flex-end" }}
+            >
+              <Text style={{ color: "#2563EB", fontSize: 16, fontWeight: "700" }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
