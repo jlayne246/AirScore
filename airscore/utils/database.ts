@@ -685,42 +685,100 @@ const getNextSetlistPosition = async (
     return row?.position ?? 1;
 };
 
-export const setMusicSetlists = async (musicId: number, setlistNames: string[]) => {
-    const db = await openDatabase();
+export const setMusicSetlists = async (
+  musicId: number,
+  setlistNames: string[]
+): Promise<void> => {
+  const db = await openDatabase();
 
-    try {
-        await db.execAsync("BEGIN TRANSACTION");
+  try {
+    await db.execAsync("BEGIN TRANSACTION");
 
-        // Remove all current setlists
-        await db.runAsync("DELETE FROM music_setlists WHERE music_id = ?", [musicId]);
+    const cleanedSetlistNames = setlistNames
+      .map((name) => name.trim())
+      .filter((name) => name !== "");
 
-        // Re-add current selections (excluding "Unsetlisted")
-        for (const setlistName of setlistNames.filter((g) => g !== "")) {
-          await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
-              setlistName,
-          ]);
-
-          const setlist = await db.getFirstAsync<{ id: number }>(
-              "SELECT id FROM setlists WHERE name = ?",
-              [setlistName]
-          );
-
-          if (setlist?.id !== undefined) {
-              const position = await getNextSetlistPosition(db, setlist.id);
-
-              // Create the relationship between the music item and the setlist(s)
-              await db.runAsync(
-                  'INSERT INTO music_setlists (music_id, setlist_id, position) VALUES (?, ?, ?)', [musicId, setlist.id, position]
-              );
-          }
-        }
-
-        await db.execAsync("COMMIT");
-    } catch (error) {
-        await db.execAsync("ROLLBACK");
-        console.error("Failed to set music setlists:", error);
-        throw error;
+    for (const setlistName of cleanedSetlistNames) {
+      await db.runAsync(
+        "INSERT OR IGNORE INTO setlists (name) VALUES (?)",
+        [setlistName]
+      );
     }
+
+    const selectedSetlists: Array<{ id: number }> = [];
+
+    for (const setlistName of cleanedSetlistNames) {
+      const setlist = await db.getFirstAsync<{ id: number }>(
+        "SELECT id FROM setlists WHERE name = ?",
+        [setlistName]
+      );
+
+      if (!setlist?.id) {
+        throw new Error(`Setlist "${setlistName}" not found after insertion`);
+      }
+
+      selectedSetlists.push(setlist);
+    }
+
+    const selectedSetlistIds = selectedSetlists.map((setlist) => setlist.id);
+
+    const existingRows = await db.getAllAsync<{ setlist_id: number }>(
+      `
+      SELECT setlist_id
+      FROM music_setlists
+      WHERE music_id = ?
+      `,
+      [musicId]
+    );
+
+    const existingSetlistIds = new Set(
+      existingRows.map((row) => row.setlist_id)
+    );
+
+    if (selectedSetlistIds.length === 0) {
+      await db.runAsync(
+        "DELETE FROM music_setlists WHERE music_id = ?",
+        [musicId]
+      );
+    } else {
+      const placeholders = selectedSetlistIds.map(() => "?").join(",");
+
+      await db.runAsync(
+        `
+        DELETE FROM music_setlists
+        WHERE music_id = ?
+          AND setlist_id NOT IN (${placeholders})
+        `,
+        [musicId, ...selectedSetlistIds]
+      );
+    }
+
+    for (const setlistId of selectedSetlistIds) {
+      if (existingSetlistIds.has(setlistId)) {
+        continue;
+      }
+
+      const position = await getNextSetlistPosition(db, setlistId);
+
+      await db.runAsync(
+        `
+        INSERT INTO music_setlists (
+          music_id,
+          setlist_id,
+          position
+        )
+        VALUES (?, ?, ?)
+        `,
+        [musicId, setlistId, position]
+      );
+    }
+
+    await db.execAsync("COMMIT");
+  } catch (error) {
+    await db.execAsync("ROLLBACK");
+    console.error("Failed to set music setlists:", error);
+    throw error;
+  }
 };
   
 
@@ -1130,16 +1188,50 @@ export const setMusicSetlistsByIds = async (
   const db = await openDatabase();
 
   await db.withTransactionAsync(async () => {
-    await db.runAsync(
+    const uniqueSetlistIds = [...new Set(setlistIds)];
+
+    const existingRows = await db.getAllAsync<{ setlist_id: number }>(
       `
-      DELETE FROM music_setlists
+      SELECT setlist_id
+      FROM music_setlists
       WHERE music_id = ?
       `,
       [musicId]
     );
 
-    for (let i = 0; i < setlistIds.length; i++) {
-      const setlistId = setlistIds[i];
+    const existingSetlistIds = new Set(
+      existingRows.map((row) => row.setlist_id)
+    );
+
+    if (uniqueSetlistIds.length === 0) {
+      await db.runAsync(
+        `
+        DELETE FROM music_setlists
+        WHERE music_id = ?
+        `,
+        [musicId]
+      );
+
+      return;
+    }
+
+    const placeholders = uniqueSetlistIds.map(() => "?").join(",");
+
+    await db.runAsync(
+      `
+      DELETE FROM music_setlists
+      WHERE music_id = ?
+        AND setlist_id NOT IN (${placeholders})
+      `,
+      [musicId, ...uniqueSetlistIds]
+    );
+
+    for (const setlistId of uniqueSetlistIds) {
+      if (existingSetlistIds.has(setlistId)) {
+        continue;
+      }
+
+      const position = await getNextSetlistPosition(db, setlistId);
 
       await db.runAsync(
         `
@@ -1152,7 +1244,7 @@ export const setMusicSetlistsByIds = async (
         )
         VALUES (?, ?, ?, datetime('now'), datetime('now'))
         `,
-        [musicId, setlistId, i + 1]
+        [musicId, setlistId, position]
       );
     }
   });
