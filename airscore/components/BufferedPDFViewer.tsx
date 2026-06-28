@@ -44,6 +44,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   Bookmark,
   MetadataFormData,
+  qualityConfig,
   qualityScaleMap,
   ReaderContext,
   RootStackParamList,
@@ -393,23 +394,30 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
     (_, index) => index + 1
   );
 
+  const PAGE_ASPECT_RATIO = 1.414;
+
   const getRenderSize = (
     screenWidth: number,
     screenHeight: number,
-    qualityScale = 2.5
+    quality: ReaderSettings["pageRenderQuality"]
   ) => {
-    const longSide = Math.max(screenWidth, screenHeight);
+    const config = qualityConfig[quality];
+
     const shortSide = Math.min(screenWidth, screenHeight);
 
-    return {
-      width: Math.round(shortSide * qualityScale),
-      height: Math.round(longSide * qualityScale),
-    };
+    const width = Math.min(
+      Math.round(shortSide * config.scale),
+      config.maxWidth
+    );
+
+    const height = Math.round(width * PAGE_ASPECT_RATIO);
+
+    return { width, height };
   };
 
   const renderSize = useMemo(
-    () => getRenderSize(width, height, qualityScale),
-    [width, height, qualityScale]
+    () => getRenderSize(width, height, effectiveSettings.pageRenderQuality),
+    [width, height, effectiveSettings.pageRenderQuality]
   );
 
   const initialThumbnailIndex =
@@ -619,6 +627,14 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
       deactivateKeepAwake();
     };
   }, [effectiveSettings.keepScreenAwake]);
+
+  useEffect(() => {
+    pageImagesRef.current = {};
+    setPageImages({});
+    renderingPages.current.clear();
+
+    renderBufferAround(currentPage);
+  }, [renderSize.width, renderSize.height]);
 
   useEffect(() => {
     const checkBookmark = async () => {
