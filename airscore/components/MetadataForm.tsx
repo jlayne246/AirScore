@@ -87,15 +87,81 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
 
   // Common key signatures
   const keySignatures = [
-    'C major', 'G major', 'D major', 'A major', 'E major', 'B major', 'F# major',
-    'C# major', 'F major', 'Bb major', 'Eb major', 'Ab major', 'Db major',
-    'Gb major', 'Cb major', 'A minor', 'E minor', 'B minor', 'F# minor',
-    'C# minor', 'G# minor', 'D# minor', 'A# minor', 'D minor', 'G minor',
-    'C minor', 'F minor', 'Bb minor', 'Eb minor', 'Ab minor'
+    // Major
+    "C major",
+    "G major",
+    "D major",
+    "A major",
+    "E major",
+    "B major",
+    "F# major",
+    "C# major",
+    "F major",
+    "Bb major",
+    "Eb major",
+    "Ab major",
+    "Db major",
+    "Gb major",
+    "Cb major",
+
+    // Minor
+    "A minor",
+    "E minor",
+    "B minor",
+    "F# minor",
+    "C# minor",
+    "G# minor",
+    "D# minor",
+    "A# minor",
+    "D minor",
+    "G minor",
+    "C minor",
+    "F minor",
+    "Bb minor",
+    "Eb minor",
+    "Ab minor",
   ];
 
-  // Common time signatures
-  const timeSignatures = ['4/4', '3/4', '2/4', '6/8', '9/8', '12/8', '2/2', '3/8'];
+  const timeSignatures = [
+    // Cut time
+    "2/2",
+    "3/2",
+    "4/2",
+    "5/2",
+    "6/2",
+
+    // Simple
+    "2/4",
+    "3/4",
+    "4/4",
+    "5/4",
+    "6/4",
+
+    // Compound
+    "3/8",
+    "6/8",
+    "9/8",
+    "12/8",
+
+    // Common asymmetrical
+    "5/8",
+    "7/8",
+    "7/4",
+    "8/8",
+    "10/8",
+    "11/8",
+    "13/8",
+
+    // Less common
+    "15/8",
+    "5/16",
+    "7/16",
+    "9/16",
+    "12/16",
+  ];
+
+  const isCustomValue = (value: string, options: string[]) =>
+  value.trim() !== "" && !options.includes(value.trim());
 
   console.log(mode);
 
@@ -433,8 +499,10 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
     showAllOptions: boolean,
     setShowAllOptions: React.Dispatch<React.SetStateAction<boolean>>
   ) => {
+    const currentValue = String(formData[field] ?? "");
     const visibleOptions = showAllOptions ? options : options.slice(0, 5);
     const hiddenCount = options.length - visibleOptions.length;
+    const isCustom = isCustomValue(currentValue, options);
 
     return (
       <View className="flex-row flex-wrap mt-2">
@@ -442,12 +510,12 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           <TouchableOpacity
             key={option}
             className={`bg-white border border-gray-300 rounded-md py-1.5 px-2.5 mr-2 mb-2 ${
-              formData[field] === option ? 'bg-green-500 border-green-500' : ''
+              currentValue === option ? 'bg-green-500 border-green-500' : ''
             }`}
             onPress={() => setFormData(prev => ({ ...prev, [field]: option }))}
           >
             <Text className={`text-sm ${
-              formData[field] === option ? 'text-white' : 'text-gray-800'
+              currentValue === option ? 'text-white' : 'text-gray-800'
             }`}>
               {option}
             </Text>
@@ -460,6 +528,18 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
             onPress={() => setShowAllOptions(true)}
           >
             <Text className="text-sm text-gray-800">More...</Text>
+          </TouchableOpacity>
+        )}
+
+        {showAllOptions && (
+          <TouchableOpacity
+            className={`border rounded-md py-1.5 px-2.5 mr-2 mb-2 ${
+              isCustom ? "bg-blue-500 border-blue-500" : "bg-white border-gray-300"
+            }`}
+          >
+            <Text className={`text-sm ${isCustom ? "text-white" : "text-gray-800"}`}>
+              {isCustom ? `Custom: ${currentValue}` : "Custom"}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -695,7 +775,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
                     className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
                     value={formData.key_signature}
                     onChangeText={(text) => setFormData(prev => ({ ...prev, key_signature: text }))}
-                    placeholder="Enter key signature"
+                    placeholder="Select or enter key signature"
                     placeholderTextColor="#9CA3AF"
                   />
                   {renderQuickSelectButtons(
@@ -703,6 +783,11 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
                     'key_signature',
                     showAllKeyOptions,
                     setShowAllKeyOptions
+                  )}
+                  {isCustomValue(formData.key_signature, keySignatures) && (
+                    <Text className="text-xs text-blue-600 mt-1">
+                      Custom key signature will be saved for this score.
+                    </Text>
                   )}
                 </View>
 
@@ -713,7 +798,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
                     className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-base text-gray-800"
                     value={formData.time_signature}
                     onChangeText={(text) => setFormData(prev => ({ ...prev, time_signature: text }))}
-                    placeholder="Enter time signature"
+                    placeholder="Select or enter time signature"
                     placeholderTextColor="#9CA3AF"
                   />
                   {renderQuickSelectButtons(
@@ -721,6 +806,12 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
                     'time_signature',
                     showAllTimeOptions,
                     setShowAllTimeOptions
+                  )}
+
+                  {isCustomValue(formData.time_signature, timeSignatures) && (
+                    <Text className="text-xs text-blue-600 mt-1">
+                      Custom time signature will be saved for this score.
+                    </Text>
                   )}
                 </View>
               </>

@@ -178,6 +178,8 @@ export const GENRE_OPTIONS = [
   "Instrumental",
   "Contemporary Worship",
   "General Sacred",
+  "Psalm Chant",
+  "Hymn Reharmonisation"
 ];
 
 export interface SetlistSummary {
