@@ -1,5 +1,3 @@
-// native/AirScorePdfImport.ts
-
 import { NativeModules, Platform } from "react-native";
 
 type ImportedPdf = {
@@ -7,18 +5,25 @@ type ImportedPdf = {
   originalFilename: string;
 };
 
-const { AirScorePdfImporter } = NativeModules;
+type AirScorePdfImporterModule = {
+  importPdf(sourceUri: string): Promise<ImportedPdf>;
+};
+
+const getNativeImporter = (): AirScorePdfImporterModule => {
+  const nativeModule =
+    NativeModules.AirScorePdfImporter as AirScorePdfImporterModule | undefined;
+
+  if (Platform.OS !== "android" || !nativeModule?.importPdf) {
+    throw new Error(
+      "AirScorePdfImporter is only available in the Android native build."
+    );
+  }
+
+  return nativeModule;
+};
 
 export const importPdfNative = async (
   sourceUri: string
 ): Promise<ImportedPdf> => {
-  if (Platform.OS !== "android") {
-    throw new Error("Native PDF import is only implemented on Android.");
-  }
-
-  if (!AirScorePdfImporter?.importPdf) {
-    throw new Error("PdfImportModule is not available. Rebuild the Android app.");
-  }
-
-  return AirScorePdfImporter.importPdf(sourceUri);
+  return getNativeImporter().importPdf(sourceUri);
 };

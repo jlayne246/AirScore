@@ -391,9 +391,11 @@ export const insertMusic = async (
                 throw new Error(`Setlist "${setlistName}" not found after insertion`)
             }
 
+            const position = await getNextSetlistPosition(db, setlist.id);
+
             // Create the relationship between the music item and the setlist(s)
             await db.runAsync(
-                'INSERT INTO music_setlists (music_id, setlist_id) VALUES (?, ?)', [musicId, setlist.id]
+                'INSERT INTO music_setlists (music_id, setlist_id, position) VALUES (?, ?, ?)', [musicId, setlist.id, position]
             );
         }
 
@@ -515,9 +517,11 @@ export const updateMusic = async (
 
     // Re-insert updated associations
     for (const setlistId of setlistIds) {
+      const position = await getNextSetlistPosition(db, setlistId);
+
+      // Create the relationship between the music item and the setlist(s)
       await db.runAsync(
-        "INSERT INTO music_setlists (music_id, setlist_id) VALUES (?, ?)",
-        [id, setlistId]
+          'INSERT INTO music_setlists (music_id, setlist_id, position) VALUES (?, ?, ?)', [id, setlistId, position]
       );
     }
 
@@ -625,45 +629,28 @@ export const deleteMusic = async (id: number) => {
  * @param musicId - ID of the music item
  * @param setlistName - Name of the setlist
  */
-export const addMusicToSetlist = async (musicId: number, setlistName: string) => {
-    const db = await openDatabase();
+export const addMusicToSetlist = async (
+  musicId: number,
+  setlistName: string
+) => {
+  const db = await openDatabase();
 
-    try {
-        await db.execAsync('BEGIN TRANSACTION');
+  await db.runAsync(
+    "INSERT OR IGNORE INTO setlists (name) VALUES (?)",
+    [setlistName]
+  );
 
-        // Insert setlist if it doesn't exist
-        // if (setlistName !== "") {
-        await db.runAsync("INSERT OR IGNORE INTO setlists (name) VALUES (?)", [
-          setlistName,
-        ]);
-        // }          
+  const setlist = await db.getFirstAsync<Setlist>(
+    "SELECT id FROM setlists WHERE name = ?",
+    [setlistName]
+  );
 
-        console.log(musicId, setlistName);
+  if (!setlist?.id) {
+    throw new Error(`Setlist "${setlistName}" not found`);
+  }
 
-        // Get the setlist ID
-        const setlist = await db.getFirstAsync<Setlist>(
-            'SELECT id FROM setlists WHERE name = ?', [setlistName]
-        );
-
-        // Verify if we get a valid setlist
-        if (!setlist || typeof setlist.id == "undefined") {
-            throw new Error(`Setlist "${setlistName}" not found`);
-        }
-
-        // Create the relationship between the musicItem and its setlist
-        await db.runAsync(
-            'INSERT OR IGNORE INTO music_setlists (music_id, setlist_id) VALUES (?, ?)',
-            [musicId, setlist.id]
-        );
-
-        // Commits if successful
-        await db.execAsync('COMMIT');
-    } catch (error) {
-        // Rollback on error
-        await db.execAsync('ROLLBACK');
-        throw error;
-    }
-}
+  await addMusicToSetlistById(musicId, setlist.id);
+};
 
 /**
  * Removes a music item from a setlist
@@ -681,6 +668,22 @@ export const removeMusicFromSetlist = async (musicId: number, setlistName: strin
         )`, [musicId, setlistName]
     );
 }
+
+const getNextSetlistPosition = async (
+    db: SQLite.SQLiteDatabase,
+    setlistId: number
+): Promise<number> => {
+    const row = await db.getFirstAsync<{ position: number }>(
+        `
+        SELECT COALESCE(MAX(position), 0) + 1 AS position
+        FROM music_setlists
+        WHERE setlist_id = ?
+        `,
+        [setlistId]
+    );
+
+    return row?.position ?? 1;
+};
 
 export const setMusicSetlists = async (musicId: number, setlistNames: string[]) => {
     const db = await openDatabase();
@@ -1237,15 +1240,30 @@ export const getSetlistById = async (id: number) => {
 export const addMusicToSetlistById = async (
   musicId: number,
   setlistId: number
-): Promise<void> => {
+) => {
   const db = await openDatabase();
 
   await db.runAsync(
     `
-    INSERT OR IGNORE INTO music_setlists (music_id, setlist_id)
-    VALUES (?, ?)
+    INSERT OR IGNORE INTO music_setlists (
+      music_id,
+      setlist_id,
+      position
+    )
+    VALUES (
+      ?,
+      ?,
+      COALESCE(
+        (
+          SELECT MAX(position) + 1
+          FROM music_setlists
+          WHERE setlist_id = ?
+        ),
+        1
+      )
+    )
     `,
-    [musicId, setlistId]
+    [musicId, setlistId, setlistId]
   );
 };
 

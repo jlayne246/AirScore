@@ -23,7 +23,9 @@ const parseSettingValue = (
       return value === "true";
 
     case "viewMode":
-      return value === "twoPage" ? "double" : "single";
+        return value === "double" || value === "twoPage"
+            ? "double"
+            : "single";
 
     default:
       return value as never;

@@ -1,4 +1,4 @@
-import { NativeModules } from 'react-native';
+import { NativeModules, Platform } from "react-native";
 
 type RenderPageOptions = {
   pdfPath: string;
@@ -15,22 +15,35 @@ type RenderPageResult = {
   totalPages: number;
 };
 
-const { AirScorePdfRenderer } = NativeModules;
+type AirScorePdfRendererModule = {
+  getPageCount(pdfPath: string): Promise<number>;
+  renderPage(options: RenderPageOptions): Promise<RenderPageResult>;
+  clearDocumentCache(pdfPath: string): Promise<boolean>;
+};
 
-if (!AirScorePdfRenderer) {
-  throw new Error('AirScorePdfRenderer native module is not registered.');
-}
+const getNativeModule = (): AirScorePdfRendererModule => {
+  const nativeModule =
+    NativeModules.AirScorePdfRenderer as AirScorePdfRendererModule | undefined;
+
+  if (Platform.OS !== "android" || !nativeModule) {
+    throw new Error(
+      "AirScorePdfRenderer is only available in the Android native build."
+    );
+  }
+
+  return nativeModule;
+};
 
 export default {
   getPageCount(pdfPath: string): Promise<number> {
-    return AirScorePdfRenderer.getPageCount(pdfPath);
+    return getNativeModule().getPageCount(pdfPath);
   },
 
   renderPage(options: RenderPageOptions): Promise<RenderPageResult> {
-    return AirScorePdfRenderer.renderPage(options);
+    return getNativeModule().renderPage(options);
   },
 
   clearDocumentCache(pdfPath: string): Promise<boolean> {
-    return AirScorePdfRenderer.clearDocumentCache(pdfPath);
+    return getNativeModule().clearDocumentCache(pdfPath);
   },
 };
