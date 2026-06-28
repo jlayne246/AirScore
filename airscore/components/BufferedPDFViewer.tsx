@@ -359,6 +359,12 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
 
+  const renderSize = useMemo(
+    () => getRenderSize(width, height, 2.5),
+    [width, height]
+  );
+
+
   const effectiveDisplayMode: DisplayMode =
     isLandscape ? displayMode : 'single';
 
@@ -384,6 +390,20 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
     { length: totalPages },
     (_, index) => index + 1
   );
+
+  const getRenderSize = (
+    screenWidth: number,
+    screenHeight: number,
+    qualityScale = 2.5
+  ) => {
+    const longSide = Math.max(screenWidth, screenHeight);
+    const shortSide = Math.min(screenWidth, screenHeight);
+
+    return {
+      width: Math.round(shortSide * qualityScale),
+      height: Math.round(longSide * qualityScale),
+    };
+  };
 
   const initialThumbnailIndex =
   Math.floor((currentPage - 1) / THUMB_COLUMNS) * THUMB_COLUMNS;
@@ -425,8 +445,8 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
         const result = await AirScorePdfRenderer.renderPage({
           pdfPath: uri,
           page,
-          width: 1600,
-          height: 2200,
+          width: renderSize.width,
+          height: renderSize.height,
         });
 
         console.log(
@@ -445,7 +465,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
         renderingPages.current.delete(page);
       }
     },
-    [uri, totalPages]
+    [uri, totalPages, renderSize]
   );
 
   const renderThumbnail = useCallback(
