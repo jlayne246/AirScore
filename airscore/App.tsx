@@ -18,6 +18,8 @@ import DashboardScreen from './screens/DashboardScreen';
 import SetlistsScreen from './screens/SetlistsScreen';
 import SetlistDetailScreen from './screens/SetlistDetailScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import SetlistSettingsScreen from './screens/setlists/SetlistSettingsScreen';
+import MusicSettingsScreen from './screens/music/MusicSettingsScreen';
 
 import DevToolsButton from "./components/DevToolsButton";
 import TestComponent from "./components/TestTailwind";
@@ -192,6 +194,14 @@ export default function App() {
                   <Stack.Screen name="Setlists" component={SetlistsScreen} />
                   <Stack.Screen name="SetlistDetail" component={SetlistDetailScreen} />
                   <Stack.Screen name="Settings" component={SettingsScreen} />
+                  <Stack.Screen
+                    name="SetlistSettings"
+                    component={SetlistSettingsScreen}
+                  />
+                  <Stack.Screen
+                    name="MusicSettings"
+                    component={MusicSettingsScreen}
+                  />
                 </Stack.Navigator>
               </NavigationContainer>
             </MenuProvider>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { runOnJS } from 'react-native-reanimated';
@@ -224,6 +224,62 @@ function ActionRow({
   );
 }
 
+function OverflowMenuItem({
+  icon,
+  label,
+  onPress,
+  accent = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  accent?: boolean;
+}) {
+  return (
+    <MenuOption onSelect={onPress}>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+        }}
+      >
+        <Ionicons
+          name={icon}
+          size={20}
+          color={accent ? ACCENT_COLOR : "#374151"}
+          style={{ width: 28 }}
+        />
+
+        <Text
+          style={{
+            marginLeft: 10,
+            fontSize: 16,
+            color: accent ? ACCENT_COLOR : "#111827",
+            fontWeight: accent ? "700" : "400",
+          }}
+        >
+          {label}
+        </Text>
+      </View>
+    </MenuOption>
+  );
+}
+
+function OverflowMenuDivider() {
+  return (
+    <View
+      style={{
+        height: 1,
+        backgroundColor: "#E5E7EB",
+        marginVertical: 4,
+        marginHorizontal: 14,
+      }}
+    />
+  );
+}
+
 const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings, onMetadataUpdated, onNextScore, onPreviousScore, onNextScoreFromPageTurn, onPreviousScoreFromPageTurn }: BufferedPDFViewerProps) => {
   const pagerRef = useRef<PagerView>(null);
   const renderingPages = useRef<Set<number>>(new Set());
@@ -263,11 +319,50 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   const [metadataFormVisible, setMetadataFormVisible] = useState(false);
   const [manageSetlistsVisible, setManageSetlistsVisible] = useState(false);
 
+  const [performanceModeOverride, setPerformanceModeOverride] =
+  useState<boolean | null>(null);
+
+  const effectivePerformanceMode =
+    performanceModeOverride ?? settings.performanceMode;
+
+  // const effectiveAutoHideControls =
+  // effectivePerformanceMode ? true : settings.autoHideControls;
+
+  // const effectiveTapZones =
+  //   effectivePerformanceMode ? true : settings.tapZones;
+
+  // const effectiveFacialGestures =
+  //   effectivePerformanceMode ? settings.facialGestures : false;
+
+  const effectiveSettings = useMemo(() => {
+    if (!effectivePerformanceMode) {
+      return settings;
+    }
+
+    return {
+      ...settings,
+
+      autoHideControls: true,
+      tapZones: true,
+      keepScreenAwake: true,
+      resumeLastPage: settings.resumeLastPage,
+
+      // Leave these alone
+      facialGestures: settings.facialGestures,
+      swipeNavigation: settings.swipeNavigation,
+      pageAnimation: settings.pageAnimation,
+
+      // anything else you want Performance Mode to force
+    };
+  }, [settings, effectivePerformanceMode]);
+
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
 
   const effectiveDisplayMode: DisplayMode =
     isLandscape ? displayMode : 'single';
+
+  const performanceModeClosingRef = useRef(false);
 
   // const [coverOffset, setCoverOffset] = useState(false);
 
@@ -489,14 +584,14 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   }, [saveCurrentSetlistProgress]);
 
   useEffect(() => {
-    if (!settings.keepScreenAwake) return;
+    if (!effectiveSettings.keepScreenAwake) return;
 
     activateKeepAwakeAsync();
 
     return () => {
       deactivateKeepAwake();
     };
-  }, [settings.keepScreenAwake]);
+  }, [effectiveSettings.keepScreenAwake]);
 
   useEffect(() => {
     const checkBookmark = async () => {
@@ -540,12 +635,12 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   // }, []);
 
   useEffect(() => {
-    setDisplayMode(settings.viewMode);
-  }, [settings.viewMode]);
+    setDisplayMode(effectiveSettings.viewMode);
+  }, [effectiveSettings.viewMode]);
 
   useEffect(() => {
-    setCoverOffset(settings.coverOffset);
-  }, [settings.coverOffset]);
+    setCoverOffset(effectiveSettings.coverOffset);
+  }, [effectiveSettings.coverOffset]);
 
   // useEffect(() => {
   //   AsyncStorage.setItem(
@@ -557,7 +652,11 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   const showChromeTemporarily = useCallback(() => {
     setChromeVisible(true);
 
-    if (!settings.autoHideControls) {
+    // if (!settings.autoHideControls) {
+    //   return;
+    // }
+
+    if (!effectiveSettings.autoHideControls) {
       return;
     }
 
@@ -572,14 +671,13 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
       chromeHideTimer.current = null;
     }, 5000);
-  }, [overflowMenuOpen, settings.autoHideControls]);
+  }, [overflowMenuOpen, effectiveSettings.autoHideControls]);
 
   useEffect(() => {
     let cancelled = false;
 
     const initialiseDocument = async () => {
       setReaderReady(false);
-      console.log('Document changed, clearing page cache');
 
       pageImagesRef.current = {};
       setPageImages({});
@@ -595,7 +693,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
       if (initialPage) {
         safePage = Math.min(initialPage, detectedTotal);
-      } else if (settings.resumeLastPage) {
+      } else if (effectiveSettings.resumeLastPage) {
         const saved = await AsyncStorage.getItem(`pdf:lastPage:${uri}`);
         const savedPage = saved ? Number(saved) : 1;
 
@@ -603,15 +701,31 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
           Number.isFinite(savedPage) && savedPage > 0
             ? Math.min(savedPage, detectedTotal)
             : 1;
-      } else {
-        safePage = 1;
       }
 
-      setCurrentPage(safePage);
-      setInitialPagerIndex(getPagerIndexForPage(safePage));
-      setReaderReady(true);
+      const showInitialChrome = () => {
+        setChromeVisible(true);
 
-      showChromeTemporarily();
+        // if (!settings.autoHideControls) return;
+
+        if (!effectiveSettings.autoHideControls) {
+          return;
+        }
+
+        if (chromeHideTimer.current) {
+          clearTimeout(chromeHideTimer.current);
+        }
+
+        chromeHideTimer.current = setTimeout(() => {
+          setChromeVisible(false);
+          chromeHideTimer.current = null;
+        }, 5000);
+      };
+
+      setCurrentPage(safePage);
+      setInitialPagerIndex(safePage - 1);
+      setReaderReady(true);
+      showInitialChrome();
 
       requestAnimationFrame(() => {
         pagerRef.current?.setPageWithoutAnimation(safePage - 1);
@@ -623,17 +737,11 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
     return () => {
       cancelled = true;
     };
-  }, [
-    uri,
-    initialPage,
-    settings.resumeLastPage,
-    getPagerIndexForPage,
-    showChromeTemporarily,
-  ]);
+  }, [uri, initialPage, effectiveSettings.resumeLastPage]);
 
   useEffect(() => {
     renderBufferAround(currentPage);
-  }, [currentPage, renderBufferAround, settings.resumeLastPage]);
+  }, [currentPage, renderBufferAround, effectiveSettings.resumeLastPage]);
 
   
 
@@ -645,7 +753,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
       pagerRef.current?.setPage(getPagerIndexForPage(nextPage));
 
-      if (settings.resumeLastPage) {
+      if (effectiveSettings.resumeLastPage) {
         AsyncStorage.setItem(`pdf:lastPage:${uri}`, nextPage.toString());
       }
 
@@ -705,7 +813,14 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
         return false;
       }
 
-      if (settings.autoHideControls) {
+      // if (settings.autoHideControls) {
+      //   chromeHideTimer.current = setTimeout(() => {
+      //     setChromeVisible(false);
+      //     chromeHideTimer.current = null;
+      //   }, 3500);
+      // }
+
+      if (effectiveSettings.autoHideControls) {
         chromeHideTimer.current = setTimeout(() => {
           setChromeVisible(false);
           chromeHideTimer.current = null;
@@ -714,7 +829,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
       return true;
     });
-  }, [settings.autoHideControls]);
+  }, [effectiveSettings.autoHideControls]);
 
   useEffect(() => {
     return () => {
@@ -861,35 +976,133 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
               </Text>
             </TouchableOpacity>
 
-            <Menu 
-              onOpen={() => { 
-                setOverflowMenuOpen(true); 
-                setChromeVisible(true); 
-                
-                if (chromeHideTimer.current) { 
-                    clearTimeout(chromeHideTimer.current); 
-                    chromeHideTimer.current = null; 
-                  } 
+            <Menu
+              onOpen={() => {
+                setOverflowMenuOpen(true);
+
+                if (chromeHideTimer.current) {
+                  clearTimeout(chromeHideTimer.current);
+                  chromeHideTimer.current = null;
                 }
-              } 
-              onClose={() => { 
-                  setOverflowMenuOpen(false); 
-                  showChromeTemporarily(); 
+              }}
+              onClose={() => {
+                setOverflowMenuOpen(false);
+
+                if (performanceModeClosingRef.current) {
+                  performanceModeClosingRef.current = false;
+                  return;
                 }
-              } 
-            > 
-              <MenuTrigger> 
-                <Ionicons name="ellipsis-vertical" size={28} color={ACCENT_COLOR} /> 
-              </MenuTrigger> 
-              
-              <MenuOptions customStyles={{ optionsContainer: { paddingVertical: 6, width: 220, }, }} > 
-                <MenuOption onSelect={() => { setDisplayMode((mode) => mode === 'single' ? 'double' : 'single' ); }} > 
-                  <Text style={{ padding: 10, fontSize: 16, color: ACCENT_COLOR }}> View: {displayMode === 'double' ? 'Two Page' : 'Single Page'} </Text> 
-                </MenuOption> 
-                <MenuOption onSelect={() => { setCoverOffset((v) => !v); }} > 
-                  <Text style={{ padding: 10, fontSize: 16, color: ACCENT_COLOR }}> Cover Offset: {coverOffset ? 'On' : 'Off'} </Text> 
-                </MenuOption> 
-              </MenuOptions> 
+
+                showChromeTemporarily();
+              }}
+            >
+              <MenuTrigger>
+                <Ionicons name="ellipsis-vertical" size={28} color={ACCENT_COLOR} />
+              </MenuTrigger>
+
+              <MenuOptions
+                customStyles={{
+                  optionsContainer: {
+                    width: 260,
+                    borderRadius: 14,
+                    paddingVertical: 6,
+                    backgroundColor: "white",
+                    elevation: 10,
+                  },
+                }}
+              >
+                <OverflowMenuItem
+                  icon={
+                    effectivePerformanceMode ?
+                    "flash" : "flash-outline"
+                  }
+                  label={
+                    effectivePerformanceMode
+                      ? "Leave Performance Mode"
+                      : "Performance Mode"
+                  }
+                  accent
+                  onPress={() => {
+                    const nextValue = !effectivePerformanceMode;
+
+                    performanceModeClosingRef.current = nextValue;
+
+                    setPerformanceModeOverride(nextValue);
+                    setChromeVisible(false);
+                  }}
+                />
+
+                <OverflowMenuDivider />
+
+                <OverflowMenuItem
+                  icon="information-circle-outline"
+                  label="Score Information"
+                  onPress={() => {
+                    setScoreInfoVisible(true);
+                    setChromeVisible(true);
+                  }}
+                />
+
+                <OverflowMenuItem
+                  icon="bookmark-outline"
+                  label="Bookmarks"
+                  onPress={() => {
+                    loadBookmarks();
+                    setBookmarksOverlayVisible(true);
+                  }}
+                />
+
+                <OverflowMenuDivider />
+
+                <OverflowMenuItem
+                  icon="document-text-outline"
+                  label="Score Settings"
+                  onPress={() => {
+                    navigation.navigate("MusicSettings", {
+                      musicId,
+                      setlistId: context?.setlistId,
+                    });
+                  }}
+                />
+
+                {context?.setlistId && (
+                  <OverflowMenuItem
+                    icon="list-outline"
+                    label="Setlist Settings"
+                    onPress={() => {
+                      navigation.navigate("SetlistSettings", {
+                        setlistId: context.setlistId,
+                      });
+                    }}
+                  />
+                )}
+
+                <OverflowMenuItem
+                  icon="settings-outline"
+                  label="Global Settings"
+                  onPress={() => {
+                    navigation.navigate("Settings");
+                  }}
+                />
+
+                <OverflowMenuDivider />
+
+                <OverflowMenuItem
+                  icon="star-outline"
+                  label="Add to Favorites"
+                  onPress={() => {
+                    console.log("Add to favorites");
+                  }}
+                />
+
+                <OverflowMenuItem
+                  icon="share-outline"
+                  label="Export Score"
+                  onPress={() => {
+                    console.log("Export score");
+                  }}
+                />
+              </MenuOptions>
             </Menu>
           </View>
         </View>
@@ -915,7 +1128,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
                   : position + 1;
 
               setCurrentPage(selectedPage);
-              if (settings.resumeLastPage) {
+              if (effectiveSettings.resumeLastPage) {
                 AsyncStorage.setItem(`pdf:lastPage:${uri}`, selectedPage.toString());
               }
 
@@ -1810,7 +2023,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
         </GestureDetector>
       )}
 
-      {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && !scoreInfoVisible && settings.tapZones && (
+      {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && !scoreInfoVisible && effectiveSettings.tapZones && (
         <>
           {/* left Pressable */}
 

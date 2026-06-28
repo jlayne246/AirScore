@@ -23,6 +23,13 @@ export type RootStackParamList = {
     setlistId: number;
   };
   Settings: undefined;
+  SetlistSettings: {
+    setlistId: number;
+  }
+  MusicSettings: {
+    musicId: number;
+    setlistId?: number;
+  };
 };
 
 // Define types for music items

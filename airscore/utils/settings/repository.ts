@@ -180,3 +180,33 @@ export const deleteMusicReaderSetting = async (
     [musicId, key]
   );
 };
+
+export const clearSetlistReaderSettings = async (
+    setlistId: number
+) => {
+
+    const db = await openDatabase();
+
+    await db.runAsync(
+        `
+        DELETE FROM setlist_settings
+        WHERE setlist_id = ?
+        `,
+        [setlistId]
+    );
+};
+
+export const clearMusicReaderSettings = async (
+    musicId: number
+) => {
+
+    const db = await openDatabase();
+
+    await db.runAsync(
+        `
+        DELETE FROM music_settings
+        WHERE music_id = ?
+        `,
+        [musicId]
+    );
+};

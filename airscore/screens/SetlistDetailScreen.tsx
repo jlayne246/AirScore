@@ -149,6 +149,15 @@ const SetlistDetailScreen = ({ route, navigation }: any) => {
                 color="#2563EB"
                 />
             </TouchableOpacity>
+            <TouchableOpacity
+                onPress={() =>
+                    navigation.navigate("SetlistSettings", {
+                    setlistId,
+                    })
+                }
+                >
+                <Ionicons name="settings-outline" size={26} color={ACCENT_COLOR} />
+            </TouchableOpacity>
             </View>
         </View>
         ),
