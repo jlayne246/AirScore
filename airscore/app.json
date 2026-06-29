@@ -22,6 +22,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0099FF"
       },
+      "versionCode": 2,
       "edgeToEdgeEnabled": true,
       "intentFilters": [
         {

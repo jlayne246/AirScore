@@ -7,6 +7,7 @@ import {
   Alert,
   Button,
   FlatList,
+  PixelRatio,
   Image,
   Pressable,
   ScrollView,
@@ -44,6 +45,8 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   Bookmark,
   MetadataFormData,
+  // qualityConfig,
+  qualityScaleMap,
   ReaderContext,
   RootStackParamList,
   ScoreMetadata,
@@ -346,6 +349,10 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
       tapZones: true,
       keepScreenAwake: true,
       resumeLastPage: settings.resumeLastPage,
+      pageRenderQuality:
+        effectivePerformanceMode
+            ? "high"
+            : settings.pageRenderQuality,
 
       // Leave these alone
       facialGestures: settings.facialGestures,
@@ -358,6 +365,9 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
+
+  const qualityScale =
+    qualityScaleMap[effectiveSettings.pageRenderQuality];
 
   const effectiveDisplayMode: DisplayMode =
     isLandscape ? displayMode : 'single';
@@ -383,6 +393,42 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   const thumbnailPages = Array.from(
     { length: totalPages },
     (_, index) => index + 1
+  );
+
+  const PAGE_ASPECT_RATIO = 1.414;
+
+  const qualityConfig = {
+    standard: { scale: 1.4, maxWidth: 1800, minWidth: 1600 },
+    high: { scale: 1.8, maxWidth: 2400, minWidth: 2200 },
+    ultra: { scale: 2.2, maxWidth: 3000, minWidth: 2400 },
+  } as const;
+
+  const getRenderSize = (
+    widthDp: number,
+    heightDp: number,
+    quality: ReaderSettings["pageRenderQuality"]
+  ) => {
+    const config = qualityConfig[quality];
+
+    const pixelRatio = PixelRatio.get();
+    const shortSidePx = Math.min(widthDp, heightDp) * pixelRatio;
+
+    const renderWidth = Math.min(
+      Math.max(Math.round(shortSidePx * config.scale), config.minWidth),
+      config.maxWidth
+    );
+
+    const renderHeight = Math.round(renderWidth * PAGE_ASPECT_RATIO);
+
+    return {
+      width: renderWidth,
+      height: renderHeight,
+    };
+  };
+
+  const renderSize = useMemo(
+    () => getRenderSize(width, height, effectiveSettings.pageRenderQuality),
+    [width, height, effectiveSettings.pageRenderQuality]
   );
 
   const initialThumbnailIndex =
@@ -425,8 +471,8 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
         const result = await AirScorePdfRenderer.renderPage({
           pdfPath: uri,
           page,
-          width: 1600,
-          height: 2200,
+          width: renderSize.width,
+          height: renderSize.height,
         });
 
         console.log(
@@ -445,7 +491,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
         renderingPages.current.delete(page);
       }
     },
-    [uri, totalPages]
+    [uri, totalPages, renderSize]
   );
 
   const renderThumbnail = useCallback(
@@ -592,6 +638,14 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
       deactivateKeepAwake();
     };
   }, [effectiveSettings.keepScreenAwake]);
+
+  useEffect(() => {
+    pageImagesRef.current = {};
+    setPageImages({});
+    renderingPages.current.clear();
+
+    renderBufferAround(currentPage);
+  }, [renderSize.width, renderSize.height]);
 
   useEffect(() => {
     const checkBookmark = async () => {

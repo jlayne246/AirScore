@@ -178,6 +178,8 @@ export const GENRE_OPTIONS = [
   "Instrumental",
   "Contemporary Worship",
   "General Sacred",
+  "Psalm Chant",
+  "Hymn Reharmonisation"
 ];
 
 export interface SetlistSummary {
@@ -189,4 +191,29 @@ export interface SetlistSummary {
   updated_at?: string;
 }
 
+export const qualityScaleMap = {
+    standard: 2.0,
+    high: 2.5,
+    ultra: 3.0,
+};
 
+export const maxRenderSizeCap = {
+    standard: {
+      width: 1800,
+      height: 2500
+    },
+    high: {
+      width: 2400,
+      height: 3300
+    },
+    ultra: {
+      width: 2800,
+      height: 3900
+    },
+};
+
+// export const qualityConfig = {
+//   standard: { scale: 1.6, maxWidth: 1800 },
+//   high: { scale: 2.1, maxWidth: 2400 },
+//   ultra: { scale: 2.5, maxWidth: 3000 },
+// } as const;
