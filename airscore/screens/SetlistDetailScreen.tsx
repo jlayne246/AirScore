@@ -155,6 +155,7 @@ const SetlistDetailScreen = ({ route, navigation }: any) => {
                     setlistId,
                     })
                 }
+                style={{marginLeft: 12}}
                 >
                 <Ionicons name="settings-outline" size={26} color={ACCENT_COLOR} />
             </TouchableOpacity>
