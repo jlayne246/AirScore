@@ -2115,8 +2115,12 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
                 changingScoreRef.current = true;
 
-                await saveCurrentSetlistProgress();
-                onPreviousScoreFromPageTurn?.();
+                try {
+                  await saveCurrentSetlistProgress();
+                  await onPreviousScoreFromPageTurn?.();
+                } finally {
+                  changingScoreRef.current = false;
+                }
 
                 return;
               }
@@ -2157,9 +2161,12 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
                 changingScoreRef.current = true;
 
-                await saveCurrentSetlistProgress();
-                onNextScoreFromPageTurn?.();
-
+                try {
+                  await saveCurrentSetlistProgress();
+                  await onNextScoreFromPageTurn?.();
+                } finally {
+                  changingScoreRef.current = false;
+                }
                 return;
               }
 
