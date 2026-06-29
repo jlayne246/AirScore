@@ -69,12 +69,12 @@ class AirScorePdfRendererModule(
             val pageHeight = page.height
 
             val pageRatio = pageWidth.toFloat() / pageHeight.toFloat()
-            val targetRatio = width.toFloat() / height.toFloat()
+            val requestedRatio = width.toFloat() / height.toFloat()
 
             val renderWidth: Int
             val renderHeight: Int
 
-            if (targetRatio > pageRatio) {
+            if (requestedRatio > pageRatio) {
                 renderHeight = height
                 renderWidth = (height * pageRatio).toInt()
             } else {
@@ -82,18 +82,26 @@ class AirScorePdfRendererModule(
                 renderHeight = (width / pageRatio).toInt()
             }
 
-            val left = (width - renderWidth) / 2
-            val top = (height - renderHeight) / 2
+            if (renderWidth <= 0 || renderHeight <= 0) {
+                throw IllegalArgumentException(
+                    "Invalid render size: ${renderWidth}x${renderHeight}"
+                )
+            }
 
-            val destRect = Rect(
-                left,
-                top,
-                left + renderWidth,
-                top + renderHeight
+            val bitmap = Bitmap.createBitmap(
+                renderWidth,
+                renderHeight,
+                Bitmap.Config.ARGB_8888
             )
 
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             bitmap.eraseColor(Color.WHITE)
+
+            val destRect = Rect(
+                0,
+                0,
+                renderWidth,
+                renderHeight
+            )
 
             page.render(
                 bitmap,
@@ -112,7 +120,7 @@ class AirScorePdfRendererModule(
 
             val outputFile = File(
                 cacheDir,
-                "page_${pageNumber}_${width}x${height}.png"
+                "page_${pageNumber}_${renderWidth}x${renderHeight}.png"
             )
 
             FileOutputStream(outputFile).use { output ->
@@ -123,8 +131,8 @@ class AirScorePdfRendererModule(
 
             val result = Arguments.createMap()
             result.putString("uri", Uri.fromFile(outputFile).toString())
-            result.putInt("width", width)
-            result.putInt("height", height)
+            result.putInt("width", renderWidth)
+            result.putInt("height", renderHeight)
             result.putInt("page", pageNumber)
             result.putInt("totalPages", renderer.pageCount)
 
