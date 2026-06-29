@@ -3,6 +3,7 @@ package com.jlayne246.airscore
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
+import android.util.Log
 import android.net.Uri
 import android.graphics.Rect
 import android.os.ParcelFileDescriptor
@@ -87,6 +88,11 @@ class AirScorePdfRendererModule(
                     "Invalid render size: ${renderWidth}x${renderHeight}"
                 )
             }
+
+            Log.d(
+                "AirScorePdfRenderer",
+                "Requested=${width}x${height}, Rendered=${renderWidth}x${renderHeight}, PDF=${pageWidth}x${pageHeight}, Page=$pageNumber"
+            )
 
             val bitmap = Bitmap.createBitmap(
                 renderWidth,
