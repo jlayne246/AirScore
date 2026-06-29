@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.graphics.Rect
 import android.os.ParcelFileDescriptor
 import com.facebook.react.bridge.*
 import java.io.File
@@ -64,12 +65,39 @@ class AirScorePdfRendererModule(
 
             page = renderer.openPage(pageIndex)
 
+            val pageWidth = page.width
+            val pageHeight = page.height
+
+            val pageRatio = pageWidth.toFloat() / pageHeight.toFloat()
+            val targetRatio = width.toFloat() / height.toFloat()
+
+            val renderWidth: Int
+            val renderHeight: Int
+
+            if (targetRatio > pageRatio) {
+                renderHeight = height
+                renderWidth = (height * pageRatio).toInt()
+            } else {
+                renderWidth = width
+                renderHeight = (width / pageRatio).toInt()
+            }
+
+            val left = (width - renderWidth) / 2
+            val top = (height - renderHeight) / 2
+
+            val destRect = Rect(
+                left,
+                top,
+                left + renderWidth,
+                top + renderHeight
+            )
+
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             bitmap.eraseColor(Color.WHITE)
 
             page.render(
                 bitmap,
-                null,
+                destRect,
                 null,
                 PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY
             )
