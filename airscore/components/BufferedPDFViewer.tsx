@@ -290,6 +290,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   const renderingThumbnails = useRef<Set<number>>(new Set());
   const thumbnailBatchCancelled = useRef(false);
   const thumbnailListRef = useRef<FlatList<number>>(null);
+  const changingScoreRef = useRef(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -394,6 +395,16 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
     { length: totalPages },
     (_, index) => index + 1
   );
+
+  const canUseTapZones =
+    !jumpOverlayVisible &&
+    !bookmarksOverlayVisible &&
+    !labelOverlayVisible &&
+    !scoreInfoVisible &&
+    effectiveSettings.tapZones &&
+    totalPages > 0 &&
+    currentPage >= 1 &&
+    currentPage <= totalPages;
 
   const PAGE_ASPECT_RATIO = 1.414;
 
@@ -2077,7 +2088,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
         </GestureDetector>
       )}
 
-      {!jumpOverlayVisible && !bookmarksOverlayVisible && !labelOverlayVisible && !scoreInfoVisible && effectiveSettings.tapZones && (
+      {canUseTapZones && (
         <>
           {/* left Pressable */}
 
@@ -2092,11 +2103,25 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
               elevation: 999,
               // backgroundColor: 'rgba(255, 0, 0, 0.12)',
             }}
-            onPress={() => {
+            onPress={async () => {
+              if (currentPage < 1 || currentPage > totalPages) return;
+
               const previousPage = currentPage - pageStep;
 
               if (previousPage < 1) {
-                onPreviousScoreFromPageTurn?.();
+                if (!context?.setlistId || changingScoreRef.current) {
+                  return;
+                }
+
+                changingScoreRef.current = true;
+
+                try {
+                  await saveCurrentSetlistProgress();
+                  await onPreviousScoreFromPageTurn?.();
+                } finally {
+                  changingScoreRef.current = false;
+                }
+
                 return;
               }
 
@@ -2117,7 +2142,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
               elevation: 999,
               // backgroundColor: 'rgba(255, 0, 0, 0.12)',
             }}
-            onPress={() => {
+            onPress={async () => {
               console.log("Right tap zone pressed", {
                 currentPage,
                 pageStep,
@@ -2125,11 +2150,23 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
                 hasNextScore: !!onNextScore,
               });
 
+              if (currentPage < 1 || currentPage > totalPages) return;
+
               const nextPage = currentPage + pageStep;
 
               if (nextPage > totalPages) {
-                saveCurrentSetlistProgress();
-                onNextScoreFromPageTurn?.();
+                if (!context?.setlistId || changingScoreRef.current) {
+                  return;
+                }
+
+                changingScoreRef.current = true;
+
+                try {
+                  await saveCurrentSetlistProgress();
+                  await onNextScoreFromPageTurn?.();
+                } finally {
+                  changingScoreRef.current = false;
+                }
                 return;
               }
 
