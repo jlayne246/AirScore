@@ -98,26 +98,32 @@
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-
-<!-- USAGE EXAMPLES -->
-## Usage
-
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
-
-_For more examples, please refer to the [Documentation](https://example.com)_
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
 <!-- ROADMAP -->
 ## Roadmap
+```
+v1.0
+✓ MVP
+✓ Native renderer
+✓ Buffered pages
+✓ Performance mode
 
-- [ ] Dashboard 
-- [ ] Score Library
-- [ ] Groups / Setlist
-- [ ] Score Viewer
-    - [ ] Page Turning Gestures
+v1.1
+✓ Reader improvements
+✓ Annotations
+✓ Search
+✓ UX refinements
+
+v1.2
+✓ Cloud backup
+✓ Polish
+✓ Stability
+✓ More musician-focused features
+
+v2.0
+✓ PDFium (or another chosen renderer)
+✓ Higher-fidelity rendering
+✓ Foundation for future advanced PDF capabilities
+```
 
 See the [open issues](https://github.com/jlayne246/AirScore/issues) for a full list of proposed features (and known issues).
 
