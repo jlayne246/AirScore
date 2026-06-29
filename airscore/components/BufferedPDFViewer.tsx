@@ -7,6 +7,7 @@ import {
   Alert,
   Button,
   FlatList,
+  PixelRatio,
   Image,
   Pressable,
   ScrollView,
@@ -44,7 +45,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   Bookmark,
   MetadataFormData,
-  qualityConfig,
+  // qualityConfig,
   qualityScaleMap,
   ReaderContext,
   RootStackParamList,
@@ -396,23 +397,33 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
   const PAGE_ASPECT_RATIO = 1.414;
 
+  const qualityConfig = {
+    standard: { scale: 1.4, maxWidth: 1800, minWidth: 1600 },
+    high: { scale: 1.8, maxWidth: 2400, minWidth: 2200 },
+    ultra: { scale: 2.2, maxWidth: 3000, minWidth: 2400 },
+  } as const;
+
   const getRenderSize = (
-    screenWidth: number,
-    screenHeight: number,
+    widthDp: number,
+    heightDp: number,
     quality: ReaderSettings["pageRenderQuality"]
   ) => {
     const config = qualityConfig[quality];
 
-    const shortSide = Math.min(screenWidth, screenHeight);
+    const pixelRatio = PixelRatio.get();
+    const shortSidePx = Math.min(widthDp, heightDp) * pixelRatio;
 
-    const width = Math.min(
-      Math.round(shortSide * config.scale),
+    const renderWidth = Math.min(
+      Math.max(Math.round(shortSidePx * config.scale), config.minWidth),
       config.maxWidth
     );
 
-    const height = Math.round(width * PAGE_ASPECT_RATIO);
+    const renderHeight = Math.round(renderWidth * PAGE_ASPECT_RATIO);
 
-    return { width, height };
+    return {
+      width: renderWidth,
+      height: renderHeight,
+    };
   };
 
   const renderSize = useMemo(

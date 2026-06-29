@@ -212,8 +212,8 @@ export const maxRenderSizeCap = {
     },
 };
 
-export const qualityConfig = {
-  standard: { scale: 1.6, maxWidth: 1800 },
-  high: { scale: 2.1, maxWidth: 2400 },
-  ultra: { scale: 2.5, maxWidth: 3000 },
-} as const;
+// export const qualityConfig = {
+//   standard: { scale: 1.6, maxWidth: 1800 },
+//   high: { scale: 2.1, maxWidth: 2400 },
+//   ultra: { scale: 2.5, maxWidth: 3000 },
+// } as const;
