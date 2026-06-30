@@ -17,6 +17,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppState, AppStateStatus } from "react-native";
 import {
   Menu,
@@ -1293,20 +1294,21 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
       {chromeVisible && (
         <View
           style={{
-            position: 'absolute',
+            position: "absolute",
             left: 0,
             right: 0,
             bottom: 0,
-            height: 84,
             zIndex: 1300,
-            backgroundColor: 'rgba(255,255,255,0.96)',
+            backgroundColor: "rgba(255,255,255,0.96)",
             borderTopWidth: 1,
-            borderTopColor: '#ddd',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-around',
+            borderTopColor: "#ddd",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-around",
             paddingHorizontal: 12,
-            paddingBottom: Math.max(insets.bottom, 12)
+            paddingTop: 12,
+            paddingBottom: Math.max(insets.bottom, 12),
+            minHeight: 84,
           }}
         >
           {context?.setlistId ? (
