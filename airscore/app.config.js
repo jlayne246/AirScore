@@ -33,7 +33,7 @@ export default ({ config }) => ({
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#0099FF",
     },
-    versionCode: 2,
+    versionCode: 3,
     edgeToEdgeEnabled: true,
     package: "com.jlayne246.airscore"
   },
