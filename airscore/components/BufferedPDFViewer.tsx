@@ -330,6 +330,8 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   const effectivePerformanceMode =
     performanceModeOverride ?? settings.performanceMode;
 
+  const insets = useSafeAreaInsets();
+
   // const effectiveAutoHideControls =
   // effectivePerformanceMode ? true : settings.autoHideControls;
 
@@ -1304,6 +1306,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
             alignItems: 'center',
             justifyContent: 'space-around',
             paddingHorizontal: 12,
+            paddingBottom: Math.max(insets.bottom, 12)
           }}
         >
           {context?.setlistId ? (
