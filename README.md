@@ -167,7 +167,7 @@ Distributed under the project_license. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Your Name - [@joshualayne246](https://www.instagram.com/joshualayne246) - joshualayne246@gmail.com
+Joshua Layne - joshua.r.layne@gmail.com
 
 Project Link: [https://github.com/jlayne246/AirScore](https://github.com/jlayne246/AirScore)
 
