@@ -1,7 +1,7 @@
 ---
 name: Epic
 about: This is to serve as an overall issue for versions and phases of development
-title: "[EPIC] Release v"
+title: "[EPIC] Release v#.#.# - [objective]"
 labels: ''
 assignees: ''
 
