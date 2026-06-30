@@ -1,0 +1,36 @@
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+
+change-template: "- $TITLE (#$NUMBER)"
+
+categories:
+  - title: "Features"
+    labels:
+      - enhancement
+
+  - title: "Bug Fixes"
+    labels:
+      - bug
+
+  - title: "UI / UX"
+    labels:
+      - ui
+      - ux
+
+  - title: "Performance"
+    labels:
+      - performance
+
+  - title: "Documentation"
+    labels:
+      - documentation
+
+  - title: "Internal"
+    labels:
+      - maintenance
+      - refactor
+
+template: |
+  ## What's Changed
+
+  $CHANGES
