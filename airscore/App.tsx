@@ -20,6 +20,8 @@ import SetlistDetailScreen from './screens/SetlistDetailScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import SetlistSettingsScreen from './screens/setlists/SetlistSettingsScreen';
 import MusicSettingsScreen from './screens/music/MusicSettingsScreen';
+import AboutScreen from './screens/AboutScreen';
+import OpenSourceLicensesScreen from './screens/LicensesScreen';
 
 import DevToolsButton from "./components/DevToolsButton";
 import TestComponent from "./components/TestTailwind";
@@ -194,6 +196,7 @@ export default function App() {
                   <Stack.Screen name="Setlists" component={SetlistsScreen} />
                   <Stack.Screen name="SetlistDetail" component={SetlistDetailScreen} />
                   <Stack.Screen name="Settings" component={SettingsScreen} />
+                  <Stack.Screen name="About" component={AboutScreen} />
                   <Stack.Screen
                     name="SetlistSettings"
                     component={SetlistSettingsScreen}
@@ -201,6 +204,11 @@ export default function App() {
                   <Stack.Screen
                     name="MusicSettings"
                     component={MusicSettingsScreen}
+                  />
+                  <Stack.Screen
+                    name="OpenSourceLicenses"
+                    component={OpenSourceLicensesScreen}
+                    options={{ title: "Open Source Licences" }}
                   />
                 </Stack.Navigator>
               </NavigationContainer>

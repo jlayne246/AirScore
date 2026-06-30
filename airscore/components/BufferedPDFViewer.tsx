@@ -123,6 +123,7 @@ function RenderedPage({
         {uri ? (
           <Image
             source={{ uri }}
+            // resizeMode='none'
             style={{
               width: '100%',
               height: '100%',

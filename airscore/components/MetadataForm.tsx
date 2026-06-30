@@ -531,7 +531,7 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
           </TouchableOpacity>
         )}
 
-        {showAllOptions && (
+        {showAllOptions && isCustom && (
           <TouchableOpacity
             className={`border rounded-md py-1.5 px-2.5 mr-2 mb-2 ${
               isCustom ? "bg-blue-500 border-blue-500" : "bg-white border-gray-300"
