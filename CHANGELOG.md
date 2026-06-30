@@ -6,7 +6,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (SemVer)
 
 ---
 
-## [Unreleased]
+## [Template] *set to Unreleased when making changes*
 
 ### Added
 
@@ -33,7 +33,7 @@ The format is based on Keep a Changelog and follows Semantic Versioning (SemVer)
 
 ---
 
-## [1.0.1] - 2026-06-30
+## [Unreleased]
 
 ### Fixed
 - Fixed reader footer overlapping the Android system taskbar on Android tablets.
