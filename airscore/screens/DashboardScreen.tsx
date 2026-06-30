@@ -4,7 +4,7 @@ import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-m
 
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, MusicItem, MusicItemWithAllData, MetadataFormData, MusicMetadata } from '../types';
+import { RootStackParamList, MusicItem, MusicItemWithAllData, MetadataFormData, MusicMetadata, ACCENT_COLOR } from '../types';
 
 import {MaterialIcons, Ionicons} from '@expo/vector-icons';
 import * as SolarIconSet from "solar-icon-set";
@@ -18,6 +18,7 @@ import { initDB, insertMusic, getMusicWithAllData, getMusicByMultipleSetlists, d
 import * as troubleshooting from "../utils/troubleshooting";
 import DeleteModal from '../components/DeleteModal';
 import AirScorePdfRenderer from '../native/AirScorePdfRenderer';
+import { Pressable } from 'react-native-gesture-handler';
 
 const DashboardScreen = ({}) => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -30,6 +31,7 @@ const DashboardScreen = ({}) => {
     const [showMetadataForm, setShowMetadataForm] = useState(false);
     const [showDeleteForm, setShowDeleteForm] = useState(false);
     const [deletedMusicId, setDeletedMusicId] = useState<number>();
+    const [menuOpen, setMenuOpen] = useState(false);
 
     const styles = StyleSheet.create({
       menuItem: {
@@ -72,7 +74,7 @@ const DashboardScreen = ({}) => {
                         >
                             AirScore
                         </Text>
-                        <Menu>
+                        {/* <Menu>
                           <MenuTrigger>
                             <Ionicons
                               name="ellipsis-vertical"
@@ -83,7 +85,6 @@ const DashboardScreen = ({}) => {
                         
                           <MenuOptions>
                             <MenuOption style={styles.menuOption} onSelect={() => navigation.navigate('Settings')}>
-                            {/* <MenuOption style={styles.menuOption} onSelect={() => Alert.alert('Coming Soon')}> */}
                               <Text style={styles.menuItem}>Settings</Text>
                             </MenuOption>
                         
@@ -94,13 +95,16 @@ const DashboardScreen = ({}) => {
                             <MenuOption style={styles.menuOption} onSelect={() => Alert.alert('Coming Soon')}>
                               <Text style={styles.menuItem}>Backups</Text>
                             </MenuOption>
-                        
-                            {/* <MenuOption style={styles.menuOption} onSelect={() => navigation.navigate('About')}> */}
+                    
                             <MenuOption style={styles.menuOption} onSelect={() => Alert.alert('Coming Soon')}>
                               <Text style={styles.menuItem}>About AirScore</Text>
                             </MenuOption>
                           </MenuOptions>
-                        </Menu>
+                        </Menu> */}
+
+                        <Pressable onPress={() => setMenuOpen(true)}>
+                            <Ionicons name="menu-outline" style={{fontSize: 28, color: ACCENT_COLOR, marginRight: 20, marginTop: 12}}></Ionicons>
+                        </Pressable>
                     </View>
                 </View>
             ),
@@ -276,8 +280,62 @@ const DashboardScreen = ({}) => {
         setPendingPdfUri(null); // Clear pending PDF URI
     };
 
+    type MenuRoute = "Settings" | "Backups" | "About";
+
+    const menuItems: { label: string; screen: MenuRoute }[] = [
+    { label: "Settings", screen: "Settings" },
+    { label: "Backups", screen: "Backups" },
+    { label: "About", screen: "About" },
+    ];
+
     return (
         <View className="flex-1 bg-white">
+            {menuOpen && (
+                <>
+                    <Pressable
+                    onPress={() => setMenuOpen(false)}
+                    style={{
+                        ...StyleSheet.absoluteFillObject,
+                        zIndex: 99,
+                    }}
+                    />
+
+                    <View
+                    style={{
+                        position: "absolute",
+                        top: -10,
+                        right: 16,
+                        width: 180,
+                        backgroundColor: "#fff",
+                        borderRadius: 12,
+                        paddingVertical: 8,
+                        zIndex: 100,
+                        elevation: 8,
+                        shadowColor: "#000",
+                        shadowOpacity: 0.15,
+                        shadowRadius: 8,
+                        shadowOffset: { width: 0, height: 3 },
+                    }}
+                    >
+                    {menuItems.map((item) => (
+                        <Pressable
+                        key={item.screen}
+                        onPress={() => {
+                            setMenuOpen(false);
+                            navigation.navigate(item.screen);
+                        }}
+                        style={{
+                            paddingVertical: 14,
+                            paddingHorizontal: 18,
+                        }}
+                        >
+                        <Text style={{ fontSize: 16 }}>{item.label}</Text>
+                        </Pressable>
+                    ))}
+                    </View>
+                </>
+                )}
+
             {/* Quick Options Menu */}
             <View className="flex-row justify-between pt-10 pb-10 mt-4 mb-4 bg-white shadow-md w-[75%] self-center rounded-lg">
                 {/* Library */}

@@ -30,6 +30,9 @@ export type RootStackParamList = {
     musicId: number;
     setlistId?: number;
   };
+  About: undefined;
+  Backups: undefined;
+  OpenSourceLicenses: undefined;
 };
 
 // Define types for music items
