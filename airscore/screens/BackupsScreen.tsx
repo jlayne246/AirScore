@@ -1,8 +1,70 @@
 // screens/BackupsScreen.tsx
-import React from "react";
-import { ScrollView, Text, View, Pressable } from "react-native";
+import React, { useLayoutEffect } from "react";
+import { ScrollView, Text, View, Pressable, TouchableOpacity } from "react-native";
+import { ACCENT_COLOR } from "../types";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 
 export default function BackupsScreen() {
+
+    const navigation =
+        useNavigation();
+        
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            header: () => (
+            <View
+                style={{
+                height: 92,
+                backgroundColor: 'white',
+                borderBottomWidth: 1,
+                borderBottomColor: '#E5E7EB',
+                justifyContent: 'flex-end',
+                paddingHorizontal: 20,
+                paddingBottom: 12,
+                }}
+            >
+                <View
+                style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}
+                >
+                <View
+                        style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        flex: 1,
+                        }}
+                    >
+                    <TouchableOpacity
+                        onPress={() => navigation.goBack()}
+                        style={{ marginRight: 12 }}
+                        >
+                        <Ionicons
+                            name="chevron-back"
+                            size={28}
+                            color={ACCENT_COLOR}
+                        />
+                        </TouchableOpacity>
+                    <Text
+                        style={{
+                        fontSize: 24,
+                        // fontWeight: '700',
+                        fontWeight: '300',
+                        color: '#111827',
+                        }}
+                    >
+                        Backups and Export
+                    </Text>
+                    </View>
+                </View>
+            </View>
+            ),
+        });
+    }, [navigation]);
+    
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: "#f6f7f9" }}
@@ -17,7 +79,7 @@ export default function BackupsScreen() {
           elevation: 2,
         }}
       >
-        <Text style={{ fontSize: 30, fontWeight: "800", color: "#111" }}>
+        <Text style={{ fontSize: 30, fontWeight: "600", color: "#111" }}>
           Backups
         </Text>
 

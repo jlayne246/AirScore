@@ -284,7 +284,7 @@ const DashboardScreen = ({}) => {
 
     const menuItems: { label: string; screen: MenuRoute }[] = [
     { label: "Settings", screen: "Settings" },
-    { label: "Backups", screen: "Backups" },
+    { label: "Backups and Export", screen: "Backups" },
     { label: "About", screen: "About" },
     ];
 

@@ -21,6 +21,7 @@ import SettingsScreen from './screens/SettingsScreen';
 import SetlistSettingsScreen from './screens/setlists/SetlistSettingsScreen';
 import MusicSettingsScreen from './screens/music/MusicSettingsScreen';
 import AboutScreen from './screens/AboutScreen';
+import BackupsScreen from './screens/BackupsScreen';
 import OpenSourceLicensesScreen from './screens/LicensesScreen';
 
 import DevToolsButton from "./components/DevToolsButton";
@@ -197,6 +198,7 @@ export default function App() {
                   <Stack.Screen name="SetlistDetail" component={SetlistDetailScreen} />
                   <Stack.Screen name="Settings" component={SettingsScreen} />
                   <Stack.Screen name="About" component={AboutScreen} />
+                  <Stack.Screen name="Backups" component={BackupsScreen} />
                   <Stack.Screen
                     name="SetlistSettings"
                     component={SetlistSettingsScreen}
