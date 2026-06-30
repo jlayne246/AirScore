@@ -15,7 +15,7 @@ export default ({ config }) => ({
   name: "AirScore",
   slug: "airscore",
   scheme: "airscore",
-  version: "1.0.0",
+  version: "1.0.1",
   orientation: "default",
   icon: "./assets/adaptive-icon.png",
   userInterfaceStyle: "light",
@@ -33,7 +33,7 @@ export default ({ config }) => ({
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#0099FF",
     },
-    versionCode: 3,
+    versionCode: 4,
     edgeToEdgeEnabled: true,
     package: "com.jlayne246.airscore"
   },
