@@ -67,7 +67,7 @@ export default function BackupsScreen() {
     
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: "#f6f7f9" }}
+      style={{ flex: 1, backgroundColor: "#ffffff" }}
       contentContainerStyle={{ padding: 24, paddingBottom: 48 }}
     >
       <View
