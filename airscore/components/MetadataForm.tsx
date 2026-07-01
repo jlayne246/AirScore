@@ -514,9 +514,10 @@ const MetadataForm: React.FC<MetadataFormProps> = ({
             }`}
             onPress={() => setFormData(prev => ({ ...prev, [field]: option }))}
           >
-            <Text className={`text-sm ${
-              currentValue === option ? 'text-white' : 'text-gray-800'
-            }`}>
+            <Text
+              className={currentValue === option ? "text-white" : "text-gray-800"}
+              style={{ fontSize: 14, includeFontPadding: true }}
+            >
               {option}
             </Text>
           </TouchableOpacity>
