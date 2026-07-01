@@ -3,6 +3,22 @@ tag-template: "v$RESOLVED_VERSION"
 
 change-template: "- $TITLE (#$NUMBER)"
 
+version-resolver:
+  major:
+    labels:
+      - major
+  minor:
+    labels:
+      - minor
+      - enhancement
+  patch:
+    labels:
+      - patch
+      - bug
+      - maintenance
+      - refactor
+  default: patch
+
 categories:
   - title: "Features"
     labels:
