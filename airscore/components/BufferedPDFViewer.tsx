@@ -17,6 +17,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Image as ExpoImage } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppState, AppStateStatus } from "react-native";
 import {
@@ -91,6 +92,13 @@ type DisplayMode =
   | "single"
   | "double";
 
+type PageImage = {
+  uri: string;
+  width: number;
+  height: number;
+  aspectRatio: number;
+};
+
 const getBuffer = (mode: DisplayMode) => {
   if (mode === "double") {
     return {
@@ -106,42 +114,50 @@ const getBuffer = (mode: DisplayMode) => {
 };
 
 function RenderedPage({
-    uri,
-    pageNumber,
-  }: {
-    uri?: string;
-    pageNumber: number;
-  }) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: 'white',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {uri ? (
-          <Image
-            source={{ uri }}
-            // resizeMode='none'
+  image,
+  pageNumber,
+}: {
+  image?: PageImage;
+  pageNumber: number;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "white",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {image ? (
+        <View
+          style={{
+            width: "100%",
+            height: "100%",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ExpoImage
+            source={{ uri: image.uri }}
+            contentFit="contain"
             style={{
-              width: '100%',
-              height: '100%',
-              resizeMode: 'contain',
+              width: "100%",
+              height: "100%",
             }}
           />
-        ) : (
-          <View style={{ alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <ActivityIndicator />
-            <Text style={{ color: ACCENT_COLOR  }}>
-              Rendering page {pageNumber}…
-            </Text>
-          </View>
-        )}
-      </View>
-    );
-  }
+        </View>
+      ) : (
+        <View style={{ alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <ActivityIndicator />
+          <Text style={{ color: ACCENT_COLOR }}>
+            Rendering page {pageNumber}…
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
 
   function InfoRow({
   label,
@@ -288,7 +304,9 @@ function OverflowMenuDivider() {
 const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings, onMetadataUpdated, onNextScore, onPreviousScore, onNextScoreFromPageTurn, onPreviousScoreFromPageTurn }: BufferedPDFViewerProps) => {
   const pagerRef = useRef<PagerView>(null);
   const renderingPages = useRef<Set<number>>(new Set());
-  const pageImagesRef = useRef<Record<number, string>>({});
+
+  const pageImagesRef = useRef<Record<number, PageImage>>({});
+  const [pageImages, setPageImages] = useState<Record<number, PageImage>>({});
   const renderingThumbnails = useRef<Set<number>>(new Set());
   const thumbnailBatchCancelled = useRef(false);
   const thumbnailListRef = useRef<FlatList<number>>(null);
@@ -296,7 +314,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [pageImages, setPageImages] = useState<Record<number, string>>({});
+  // const [pageImages, setPageImages] = useState<Record<number, string>>({});
   const [thumbnailImages, setThumbnailImages] =
     useState<Record<number, string>>({});
   const thumbnailImagesRef =
@@ -413,9 +431,9 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
   const PAGE_ASPECT_RATIO = 1.414;
 
   const qualityConfig = {
-    standard: { scale: 1.4, maxWidth: 1800, minWidth: 1600 },
-    high: { scale: 1.8, maxWidth: 2400, minWidth: 2200 },
-    ultra: { scale: 2.2, maxWidth: 3000, minWidth: 2400 },
+    standard: { scale: 1.0, maxWidth: 2200, minWidth: 1600 },
+    high: { scale: 1.25, maxWidth: 3000, minWidth: 2200 },
+    ultra: { scale: 1.5, maxWidth: 3800, minWidth: 2800 },
   } as const;
 
   const getRenderSize = (
@@ -426,14 +444,14 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
     const config = qualityConfig[quality];
 
     const pixelRatio = PixelRatio.get();
-    const shortSidePx = Math.min(widthDp, heightDp) * pixelRatio;
+    const longSidePx = Math.max(widthDp, heightDp) * PixelRatio.get();
 
-    const renderWidth = Math.min(
-      Math.max(Math.round(shortSidePx * config.scale), config.minWidth),
+    const renderHeight = Math.min(
+      Math.max(Math.round(longSidePx * config.scale), config.minWidth),
       config.maxWidth
     );
 
-    const renderHeight = Math.round(renderWidth * PAGE_ASPECT_RATIO);
+    const renderWidth = Math.round(renderHeight / PAGE_ASPECT_RATIO);
 
     return {
       width: renderWidth,
@@ -490,13 +508,27 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
           height: renderSize.height,
         });
 
+        console.log({
+          screenWidth: width,
+          screenHeight: height,
+          pixelRatio: PixelRatio.get(),
+          renderSize,
+          resultWidth: result.width,
+          resultHeight: result.height,
+        });
+
         console.log(
           `Rendered page ${page} in ${Math.round(performance.now() - start)}ms`
         );
 
         pageImagesRef.current = {
           ...pageImagesRef.current,
-          [page]: result.uri,
+          [page]: {
+            uri: result.uri,
+            width: result.width,
+            height: result.height,
+            aspectRatio: result.aspectRatio,
+          }
         };
 
         setPageImages(pageImagesRef.current);
@@ -1216,7 +1248,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
                   return (
                     <View key={`single-${pageNumber}`} style={{ flex: 1 }}>
                       <RenderedPage
-                        uri={pageImages[pageNumber]}
+                        image={pageImages[pageNumber]}
                         pageNumber={pageNumber}
                       />
                     </View>
@@ -1241,7 +1273,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
                       />
 
                       <RenderedPage
-                        uri={pageImages[1]}
+                        image={pageImages[1]}
                         pageNumber={1}
                       />
                     </View>
@@ -1264,13 +1296,13 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
                     }}
                   >
                     <RenderedPage
-                      uri={pageImages[leftPage]}
+                      image={pageImages[leftPage]}
                       pageNumber={leftPage}
                     />
 
                     {rightPage <= totalPages ? (
                       <RenderedPage
-                        uri={pageImages[rightPage]}
+                        image={pageImages[rightPage]}
                         pageNumber={rightPage}
                       />
                     ) : (
@@ -1454,7 +1486,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
               >
                 {thumbnailImages[1] || pageImages[1] ? (
                   <Image
-                    source={{ uri: thumbnailImages[1] ?? pageImages[1] }}
+                    source={{ uri: thumbnailImages[1] ?? pageImages[1]?.uri }}
                     style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
                   />
                 ) : null}
@@ -1747,7 +1779,7 @@ const BufferedPDFViewer = ({ uri, musicId, score, context, initialPage, settings
               }}
               renderItem={({ item: pageNumber }) => {
                 const pageUri =
-                  thumbnailImages[pageNumber] ?? pageImages[pageNumber];
+                  thumbnailImages[pageNumber] ?? pageImages[pageNumber]?.uri;
 
                 const bookmarkForPage = bookmarks.find(
                   (bookmark) => bookmark.page_number === pageNumber

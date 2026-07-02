@@ -113,7 +113,7 @@ class AirScorePdfRendererModule(
                 bitmap,
                 destRect,
                 null,
-                PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY
+                PdfRenderer.Page.RENDER_MODE_FOR_PRINT
             )
 
             val cacheDir = File(
@@ -141,6 +141,7 @@ class AirScorePdfRendererModule(
             result.putInt("height", renderHeight)
             result.putInt("page", pageNumber)
             result.putInt("totalPages", renderer.pageCount)
+            result.putDouble("aspectRatio", pageWidth.toDouble() / pageHeight.toDouble())
 
             promise.resolve(result)
         } catch (e: Exception) {

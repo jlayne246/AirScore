@@ -11,6 +11,7 @@ type RenderPageResult = {
   uri: string;
   width: number;
   height: number;
+  aspectRatio: number;
   page: number;
   totalPages: number;
 };
